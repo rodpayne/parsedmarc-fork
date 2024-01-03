@@ -1,4 +1,4 @@
-# parsedmarc documentation - Open source DMARC report analyzer and visualizer
+# Parsedmarc: Open source DMARC report analyzer and visualizer
 
 [![Build
 Status](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml/badge.svg)](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml)
@@ -8,22 +8,15 @@ Coverage](https://codecov.io/gh/domainaware/parsedmarc/branch/master/graph/badge
 Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project/parsedmarc/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/parsedmarc?color=blue)](https://pypistats.org/packages/parsedmarc)
 
-:::{note}
-**Help Wanted**
+!!! note "Help Wanted"
 
-This is a project is maintained by one developer.
-Please consider reviewing the open [issues] to see how you can contribute code, documentation, or user support.
-Assistance on the pinned issues would be particularly helpful.
+    This is a project is maintained by one developer.
+    Please consider reviewing the open [issues] to see how you can contribute code, documentation, or user support.
+    Assistance on the pinned issues would be particularly helpful.
 
-Thanks to all [contributors]!
-:::
+    Thanks to all [contributors]!
 
-```{image} _static/screenshots/dmarc-summary-charts.png
-:align: center
-:alt: A screenshot of DMARC summary charts in Kibana
-:scale: 50 %
-:target: _static/screenshots/dmarc-summary-charts.png
-```
+![screenshot of DMARC summary charts in Kibana](static/screenshots/dmarc-summary-charts.png)
 
 `parsedmarc` is a Python module and CLI utility for parsing DMARC reports.
 When used with Elasticsearch and Kibana (or Splunk), it works as a self-hosted
@@ -43,22 +36,6 @@ and Valimail.
 - Optionally send the results to Elasticsearch and/or Splunk, for use with
   premade dashboards
 - Optionally send reports to Apache Kafka
-
-```{toctree}
-:caption: 'Contents'
-:maxdepth: 2
-
-installation
-usage
-output
-elasticsearch
-kibana
-splunk
-davmail
-dmarc
-contributing
-api
-```
 
 [contributors]: https://github.com/domainaware/parsedmarc/graphs/contributors
 [issues]: https://github.com/domainaware/parsedmarc/issues

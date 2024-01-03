@@ -1,9 +1,8 @@
 # Accessing an inbox using OWA/EWS
 
-:::{note}
-Starting in 8.0.0, parsedmarc supports accessing Microsoft/Office 365
-inboxes via the Microsoft Graph API, which is preferred over Davmail.
-:::
+!!! note
+    Starting in 8.0.0, parsedmarc supports accessing Microsoft/Office 365
+    inboxes via the Microsoft Graph API, which is preferred over Davmail.
 
 Some organizations do not allow IMAP or the Microsoft Graph API,
 and only support Exchange Web Services (EWS)/Outlook Web Access (OWA).
@@ -139,20 +138,17 @@ sudo systemctl enable parsedmarc.service
 sudo service davmail restart
 ```
 
-:::{note}
-You must also run the above commands whenever you edit
-`davmail.service`.
-:::
+!!! note
+    You must also run the above commands whenever you edit
+    `davmail.service`.
 
-:::{warning}
-Always restart the service every time you upgrade to a new version of
-`davmail`:
+!!! warning
+    Always restart the service every time you upgrade to a new version of
+    `davmail`:
 
-```bash
-sudo service davmail restart
-```
-
-:::
+    ```bash
+    sudo service davmail restart
+    ```
 
 To check the status of the service, run:
 
@@ -160,17 +156,15 @@ To check the status of the service, run:
 service davmail status
 ```
 
-:::{note}
-In the event of a crash, systemd will restart the service after 5
-minutes, but the `service davmail status` command will only show the
-logs for the current process. To vew the logs for previous runs as
-well as the current process (newest to oldest), run:
+!!! note
+    In the event of a crash, systemd will restart the service after 5
+    minutes, but the `service davmail status` command will only show the
+    logs for the current process. To vew the logs for previous runs as
+    well as the current process (newest to oldest), run:
 
-```bash
-journalctl -u davmail.service -r
-```
-
-:::
+    ```bash
+    journalctl -u davmail.service -r
+    ```
 
 ## Configuring parsedmarc for DavMail
 

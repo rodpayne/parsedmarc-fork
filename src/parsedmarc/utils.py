@@ -79,7 +79,7 @@ def decode_base64(data: str) -> bytes:
 def get_base_domain(domain: str) -> str:
     """Get the base domain name for the given domain
 
-    .. note::
+    note:
         Results are based on a list of public domain suffixes at
         https://publicsuffix.org/list/public_suffix_list.dat.
 

@@ -61,11 +61,7 @@ indicators are also in alignment**.
    separate SPF and DMARC records on `news.example.com`, and set
    `p=none` in that DMARC record.
 
-:::{warning}
-Do not alter the `p` or `sp` values of the DMARC record on the
-Top-Level Domain (TLD) – that would leave you vulnerable to
-spoofing of your TLD and/or any subdomain.
-:::
-
-```{include} mailing-lists.md
-```
+!!! warning
+    Do not alter the `p` or `sp` values of the DMARC record on the
+    Top-Level Domain (TLD) – that would leave you vulnerable to
+    spoofing of your TLD and/or any subdomain.

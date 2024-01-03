@@ -164,18 +164,17 @@ Navigate to Privacy Options> Sending Filters, and configure the settings below
 ====================================== ==========
 ```
 
-:::{note}
-Message wrapping could be used as the DMARC mitigation action instead. In
-that case, the original message is added as an attachment to the mailing
-list message, but that could interfere with inbox searching, or mobile
-clients.
+!!! note
+    Message wrapping could be used as the DMARC mitigation action instead. In
+    that case, the original message is added as an attachment to the mailing
+    list message, but that could interfere with inbox searching, or mobile
+    clients.
 
-On the other hand, replacing the From address might cause users to
-accidentally reply to the entire list, when they only intended to reply to
-the original sender.
+    On the other hand, replacing the From address might cause users to
+    accidentally reply to the entire list, when they only intended to reply to
+    the original sender.
 
-Choose the option that best fits your community.
-:::
+    Choose the option that best fits your community.
 
 ##### Mailman 3
 
@@ -189,16 +188,15 @@ In the DMARC Mitigations tab of the Settings page, configure the settings below
 ================================== ===============================
 ```
 
-:::{note}
-Message wrapping could be used as the DMARC mitigation action instead. In
-that case, the original message is added as an attachment to the mailing
-list message, but that could interfere with inbox searching, or mobile
-clients.
+!!! note
+    Message wrapping could be used as the DMARC mitigation action instead. In
+    that case, the original message is added as an attachment to the mailing
+    list message, but that could interfere with inbox searching, or mobile
+    clients.
 
-On the other hand, replacing the From address might cause users to
-accidentally reply to the entire list, when they only intended to reply to
-the original sender.
-:::
+    On the other hand, replacing the From address might cause users to
+    accidentally reply to the entire list, when they only intended to reply to
+    the original sender.
 
 [joe nelson]: https://begriffs.com/posts/2018-09-18-dmarc-mailing-list.html
 [listserv 16.0-2017a]: https://www.lsoft.com/news/dmarc-issue1-2018.asp

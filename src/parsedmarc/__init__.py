@@ -42,7 +42,7 @@ from parsedmarc.utils import (
     timestamp_to_human,
 )
 
-__version__ = "8.6.4"
+__version__ = "9.0.0.dev1"
 
 logger.debug(f"parsedmarc v{__version__}")
 

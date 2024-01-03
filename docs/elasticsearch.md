@@ -2,9 +2,8 @@
 
 To set up visual dashboards of DMARC data, install Elasticsearch and Kibana.
 
-:::{note}
-Elasticsearch and Kibana 6 or later are required
-:::
+!!! note
+    Elasticsearch and Kibana 6 or later are required
 
 ## Installation
 
@@ -21,28 +20,27 @@ sudo apt-get install -y elasticsearch kibana
 For CentOS, RHEL, and other RPM systems, follow the Elastic RPM guides for
 [Elasticsearch] and [Kibana].
 
-:::{note}
-Previously, the default JVM heap size for Elasticsearch was very small (1g),
-which will cause it to crash under a heavy load. To fix this, increase the
-minimum and maximum JVM heap sizes in `/etc/elasticsearch/jvm.options` to
-more reasonable levels, depending on your server's resources.
+!!! note
+    Previously, the default JVM heap size for Elasticsearch was very small (1g),
+    which will cause it to crash under a heavy load. To fix this, increase the
+    minimum and maximum JVM heap sizes in `/etc/elasticsearch/jvm.options` to
+    more reasonable levels, depending on your server's resources.
 
-Make sure the system has at least 2 GB more RAM than the assigned JVM
-heap size.
+    Make sure the system has at least 2 GB more RAM than the assigned JVM
+    heap size.
 
-Always set the minimum and maximum JVM heap sizes to the same
-value.
+    Always set the minimum and maximum JVM heap sizes to the same
+    value.
 
-For example, to set a 4 GB heap size, set
+    For example, to set a 4 GB heap size, set
 
-```bash
--Xms4g
--Xmx4g
-```
+    ```bash
+    -Xms4g
+    -Xmx4g
+    ```
 
-See <https://www.elastic.co/guide/en/elasticsearch/reference/current/important-settings.html#heap-size-settings>
-for more information.
-:::
+    See <https://www.elastic.co/guide/en/elasticsearch/reference/current/important-settings.html#heap-size-settings>
+    for more information.
 
 ```bash
 sudo systemctl daemon-reload
@@ -124,17 +122,16 @@ server.ssl.certificate: /etc/kibana/kibana.crt
 server.ssl.key: /etc/kibana/kibana.key
 ```
 
-:::{note}
-For more security, you can configure Kibana to use a local network connexion
-to elasticsearch :
-```text
-elasticsearch.hosts: ['https://SERVER_IP:9200']
-```
-=> 
-```text
-elasticsearch.hosts: ['https://127.0.0.1:9200']
-```
-:::
+!!! note
+    For more security, you can configure Kibana to use a local network connexion
+    to elasticsearch :
+    ```text
+    elasticsearch.hosts: ['https://SERVER_IP:9200']
+    ```
+    => 
+    ```text
+    elasticsearch.hosts: ['https://127.0.0.1:9200']
+    ```
 
 ```bash
 sudo systemctl restart kibana

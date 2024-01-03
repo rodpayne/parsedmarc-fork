@@ -9,10 +9,9 @@ dashboards for aggregate and forensic DMARC reports.
 Copy and paste the contents of each file into a separate Splunk
 dashboard XML editor.
 
-:::{warning}
-Change all occurrences of `index="email"` in the XML to
-match your own index name.
-:::
+!!! warning
+    Change all occurrences of `index="email"` in the XML to
+    match your own index name.
 
 The Splunk dashboards display the same content and layout as the
 Kibana dashboards, although the Kibana dashboards have slightly

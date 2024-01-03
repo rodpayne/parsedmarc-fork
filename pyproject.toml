@@ -92,15 +92,16 @@ dev = [
 ]
 
 docs = [
-    "alabaster>=0.7.12",
-    "Babel>=2.7.0",
-    "docutils>=0.14,<0.18",
-    "myst-parser[linkify]>=0.18.0",
-    "pygments>=2.11.1",
-    "sphinx>=1.0.5",
-    "sphinx_rtd_theme>=0.4.3",
+    "black",
+    "mkdocs",
+    "mkdocs-material>=8.5",
+    "mkdocs-awesome-pages-plugin",
+    "mdx_truly_sane_lists",
+    "mkdocstrings[python]",
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mike",
 ]
-
 
 [project.scripts]
 parsedmarc = "parsedmarc.cli:_main"
@@ -109,11 +110,11 @@ parsedmarc = "parsedmarc.cli:_main"
 Homepage = "https://domainaware.github.io/parsedmarc"
 
 [tool.hatch.version]
-path = "parsedmarc/__init__.py"
+path = "/src/parsedmarc/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/parsedmarc",
+    "/src/parsedmarc",
 ]
 
 [tool.isort]

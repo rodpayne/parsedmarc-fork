@@ -47,10 +47,9 @@ usage: parsedmarc [-h] [-c CONFIG_FILE] [--strip-attachment-payloads] [-o OUTPUT
    -v, --version         show program's version number and exit
 ```
 
-:::{note}
-Starting in `parsedmarc` 6.0.0, most CLI options were moved to a
-configuration file, described below.
-:::
+!!! note
+    Starting in `parsedmarc` 6.0.0, most CLI options were moved to a
+    configuration file, described below.
 
 ## Configuration file
 
@@ -125,10 +124,9 @@ The full set of configuration options are:
   - `chunk_size` - int: Number of files to give to each process
       when running in parallel.
 
-    :::{note}
-    Setting this to a number larger than one can improve
-    performance when processing thousands of files
-    :::
+    !!! note
+        Setting this to a number larger than one can improve
+        performance when processing thousands of files
 
 - `mailbox`
   - `reports_folder` - str: The mailbox folder (or label for
@@ -150,19 +148,16 @@ The full set of configuration options are:
   - `host` - str: The IMAP server hostname or IP address
   - `port` - int: The IMAP server port (Default: `993`)
 
-    :::{note}
-    `%` characters must be escaped with another `%` character,
-    so use `%%` wherever a `%` character is used.
-    :::
+    !!! note
+        `%` characters must be escaped with another `%` character,
+        so use `%%` wherever a `%` character is used.
 
-    :::{note}
-    Starting in version 8.0.0, most options from the `imap`
-    section have been moved to the `mailbox` section.
-    :::
+    !!! note
+        Starting in version 8.0.0, most options from the `imap`
+        section have been moved to the `mailbox` section.
 
-    :::{note}
-    If your host recommends another port, still try 993
-    :::
+    !!! note
+        If your host recommends another port, still try 993
 
   - `ssl` - bool: Use an encrypted SSL/TLS connection
       (Default: `True`)
@@ -191,40 +186,37 @@ The full set of configuration options are:
       module to fall back to unencrypted token cache (Default: `False`).
       Even if enabled, the cache will always try encrypted storage first.
 
-    :::{note}
-    You must create an app registration in Azure AD and have an
-    admin grant the Microsoft Graph `Mail.ReadWrite`
-    (delegated) permission to the app. If you are using
-    `UsernamePassword` auth and the mailbox is different from the
-    username, you must grant the app `Mail.ReadWrite.Shared`.
-    :::
+    !!! note
+        You must create an app registration in Azure AD and have an
+        admin grant the Microsoft Graph `Mail.ReadWrite`
+        (delegated) permission to the app. If you are using
+        `UsernamePassword` auth and the mailbox is different from the
+        username, you must grant the app `Mail.ReadWrite.Shared`.
 
-    :::{warning}
-    If you are using the `ClientSecret` auth method, you need to
-    grant the `Mail.ReadWrite` (application) permission to the
-    app. You must also restrict the application's access to a
-    specific mailbox since it allows all mailboxes by default.
-    Use the `New-ApplicationAccessPolicy` command in the
-    Exchange PowerShell module. If you need to scope the policy to
-    shared mailboxes, you can add them to a mail enabled security
-    group and use that as the group id.
+    !!! warning
+        If you are using the `ClientSecret` auth method, you need to
+        grant the `Mail.ReadWrite` (application) permission to the
+        app. You must also restrict the application's access to a
+        specific mailbox since it allows all mailboxes by default.
+        Use the `New-ApplicationAccessPolicy` command in the
+        Exchange PowerShell module. If you need to scope the policy to
+        shared mailboxes, you can add them to a mail enabled security
+        group and use that as the group id.
 
-    ```powershell
-    New-ApplicationAccessPolicy -AccessRight RestrictAccess
-    -AppId "<CLIENT_ID>" -PolicyScopeGroupId "<MAILBOX>"
-    -Description "Restrict access to dmarc reports mailbox."
-    ```
+        ```powershell
+        New-ApplicationAccessPolicy -AccessRight RestrictAccess
+        -AppId "<CLIENT_ID>" -PolicyScopeGroupId "<MAILBOX>"
+        -Description "Restrict access to dmarc reports mailbox."
+        ```
 
-    :::
 - `elasticsearch`
   - `hosts` - str: A comma separated list of hostnames and ports
       or URLs (e.g. `127.0.0.1:9200` or
       `https://user:secret@localhost`)
 
-    :::{note}
-    Special characters in the username or password must be
-    [URL encoded].
-    :::
+    !!! note
+        Special characters in the username or password must be
+        [URL encoded].
 
   - `ssl` - bool: Use an encrypted SSL/TLS connection
     (Default: `True`)
@@ -266,10 +258,10 @@ The full set of configuration options are:
   - `message` - str: The email message
     (Default: `Please see the attached parsedmarc report.`)
 
-    :::{note}
-    `%` characters must be escaped with another `%` character,
-    so use `%%` wherever a `%` character is used.
-    :::
+    !!! note
+        `%` characters must be escaped with another `%` character,
+        so use `%%` wherever a `%` character is used.
+
 - `s3`
   - `bucket` - str: The S3 bucket name
   - `path` - str: The path to upload reports to (Default: `/`)
@@ -301,76 +293,72 @@ The full set of configuration options are:
   - `dcr_aggregate_stream` - str: The stream name for aggregate reports in the DCR
   - `dcr_forensic_stream` - str: The stream name for the forensic reports in the DCR
 
-  :::{note}
-    Information regarding the setup of the Data Collection Rule can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/tutorial-logs-ingestion-portal).
-    :::
+    !!! note
+        Information regarding the setup of the Data Collection Rule can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/tutorial-logs-ingestion-portal).
 
-:::{warning}
-It is **strongly recommended** to **not** use the `nameservers`
-setting. By default, `parsedmarc` uses
-[Cloudflare's public resolvers], which are much faster and more
-reliable than Google, Cisco OpenDNS, or even most local resolvers.
+!!! warning
+    It is **strongly recommended** to **not** use the `nameservers`
+    setting. By default, `parsedmarc` uses
+    [Cloudflare's public resolvers], which are much faster and more
+    reliable than Google, Cisco OpenDNS, or even most local resolvers.
 
-The `nameservers` option should only be used if your network
-blocks DNS requests to outside resolvers.
-:::
+    The `nameservers` option should only be used if your network
+    blocks DNS requests to outside resolvers.
 
-:::{note}
-`save_aggregate` and `save_forensic` are separate options
-because you may not want to save forensic reports
-(also known as failure reports) to your Elasticsearch instance,
-particularly if you are in a highly-regulated industry that
-handles sensitive data, such as healthcare or finance. If your
-legitimate outgoing email fails DMARC, it is possible
-that email may appear later in a forensic report.
+!!! note
+    `save_aggregate` and `save_forensic` are separate options
+    because you may not want to save forensic reports
+    (also known as failure reports) to your Elasticsearch instance,
+    particularly if you are in a highly-regulated industry that
+    handles sensitive data, such as healthcare or finance. If your
+    legitimate outgoing email fails DMARC, it is possible
+    that email may appear later in a forensic report.
 
-Forensic reports contain the original headers of an email that
-failed a DMARC check, and sometimes may also include the
-full message body, depending on the policy of the reporting
-organization.
+    Forensic reports contain the original headers of an email that
+    failed a DMARC check, and sometimes may also include the
+    full message body, depending on the policy of the reporting
+    organization.
 
-Most reporting organizations do not send forensic reports of any
-kind for privacy reasons. While aggregate DMARC reports are sent
-at least daily, it is normal to receive very few forensic reports.
+    Most reporting organizations do not send forensic reports of any
+    kind for privacy reasons. While aggregate DMARC reports are sent
+    at least daily, it is normal to receive very few forensic reports.
 
-An alternative approach is to still collect forensic/failure/ruf
-reports in your DMARC inbox, but run `parsedmarc` with
-```save_forensic = True``` manually on a separate IMAP folder (using
-the ```reports_folder``` option), after you have manually moved
-known samples you want to save to that folder
-(e.g. malicious samples and non-sensitive legitimate samples).
-:::
+    An alternative approach is to still collect forensic/failure/ruf
+    reports in your DMARC inbox, but run `parsedmarc` with
+    ```save_forensic = True``` manually on a separate IMAP folder (using
+    the ```reports_folder``` option), after you have manually moved
+    known samples you want to save to that folder
+    (e.g. malicious samples and non-sensitive legitimate samples).
 
-:::{warning}
-Elasticsearch 8 change limits policy for shards, restricting by
-default to 1000. parsedmarc use a shard per analyzed day. If you
-have more than ~3 years of data, you will need to update this
-limit.
-Check current usage (from Management -> Dev Tools -> Console):
+!!! warning
+    Elasticsearch 8 change limits policy for shards, restricting by
+    default to 1000. parsedmarc use a shard per analyzed day. If you
+    have more than ~3 years of data, you will need to update this
+    limit.
+    Check current usage (from Management -> Dev Tools -> Console):
 
-```text
-GET /_cluster/health?pretty
-{
-...
-  "active_primary_shards": 932,
-  "active_shards": 932,
-...
-}
-```
+    ```text
+    GET /_cluster/health?pretty
+    {
+    ...
+    "active_primary_shards": 932,
+    "active_shards": 932,
+    ...
+    }
+    ```
 
-Update the limit to 2k per example:
+    Update the limit to 2k per example:
 
-```text
-PUT _cluster/settings
-{
-  "persistent" : {
-    "cluster.max_shards_per_node" : 2000 
-  }
-}
-```
+    ```text
+    PUT _cluster/settings
+    {
+    "persistent" : {
+        "cluster.max_shards_per_node" : 2000 
+    }
+    }
+    ```
 
-Increasing this value increases resource usage.
-:::
+    Increasing this value increases resource usage.
 
 ## Running parsedmarc as a systemd service
 
@@ -416,20 +404,18 @@ sudo systemctl enable parsedmarc.service
 sudo service parsedmarc restart
 ```
 
-:::{note}
-You must also run the above commands whenever you edit
-`parsedmarc.service`.
-:::
+!!! note
+    You must also run the above commands whenever you edit
+    `parsedmarc.service`.
 
-:::{warning}
-Always restart the service every time you upgrade to a new version of
-`parsedmarc`:
 
-```bash
-sudo service parsedmarc restart
-```
+!!! warning
+    Always restart the service every time you upgrade to a new version of
+    `parsedmarc`:
 
-:::
+    ```bash
+    sudo service parsedmarc restart
+    ```
 
 To check the status of the service, run:
 
@@ -437,17 +423,15 @@ To check the status of the service, run:
 service parsedmarc status
 ```
 
-:::{note}
-In the event of a crash, systemd will restart the service after 10
-minutes, but the `service parsedmarc status` command will only show
-the logs for the current process. To view the logs for previous runs
-as well as the current process (newest to oldest), run:
+!!! note
+    In the event of a crash, systemd will restart the service after 10
+    minutes, but the `service parsedmarc status` command will only show
+    the logs for the current process. To view the logs for previous runs
+    as well as the current process (newest to oldest), run:
 
-```bash
-journalctl -u parsedmarc.service -r
-```
-
-:::
+    ```bash
+    journalctl -u parsedmarc.service -r
+    ```
 
 [cloudflare's public resolvers]: https://1.1.1.1/
 [url encoded]: https://en.wikipedia.org/wiki/Percent-encoding#Percent-encoding_reserved_characters
