@@ -19,7 +19,7 @@ nav:
   - splunk.md
   - davmail.md
   - contributing.md
-  - changelog.md
+  # - changelog.md
   - DMARC:
     - dmarc.md
     - mailing-lists.md
