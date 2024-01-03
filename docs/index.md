@@ -8,7 +8,12 @@ Coverage](https://codecov.io/gh/domainaware/parsedmarc/branch/master/graph/badge
 Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project/parsedmarc/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/parsedmarc?color=blue)](https://pypistats.org/packages/parsedmarc)
 
-!!! note "Help Wanted"
+!!! danger
+    **This is not the [official parsedmarc documentation](https://domainaware.github.io/parsedmarc/index.html)**
+
+    **This is a [test branch](https://github.com/nhairs/parsedmarc/tree/docs) showcasing mkdocs**
+
+!!! example "Help Wanted"
 
     This is a project is maintained by one developer.
     Please consider reviewing the open [issues] to see how you can contribute code, documentation, or user support.
@@ -16,13 +21,13 @@ Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project
 
     Thanks to all [contributors]!
 
-![screenshot of DMARC summary charts in Kibana](static/screenshots/dmarc-summary-charts.png)
-
 `parsedmarc` is a Python module and CLI utility for parsing DMARC reports.
 When used with Elasticsearch and Kibana (or Splunk), it works as a self-hosted
 open source alternative to commercial DMARC report processing services such
 as Agari Brand Protection, Dmarcian, OnDMARC, ProofPoint Email Fraud Defense,
 and Valimail.
+
+![screenshot of DMARC summary charts in Kibana](static/screenshots/dmarc-summary-charts.png)
 
 ## Features
 

@@ -190,17 +190,8 @@ visualizations, which could be used to restore them if you or someone else
 breaks them, as there are no permissions/access controls in Kibana without
 the commercial [X-Pack].
 
-```{image} _static/screenshots/saved-objects.png
-:align: center
-:alt: A screenshot of setting the Saved Objects Stack management UI in Kibana
-:target: _static/screenshots/saved-objects.png
-```
-
-```{image} _static/screenshots/confirm-overwrite.png
-:align: center
-:alt: A screenshot of the overwrite conformation prompt
-:target: _static/screenshots/confirm-overwrite.png
-```
+![A screenshot of setting the Saved Objects Stack management UI in Kibana](static/screenshots/saved-objects.png)
+![A screenshot of the overwrite conformation prompt](static/screenshots/confirm-overwrite.png)
 
 ## Upgrading Kibana index patterns
 

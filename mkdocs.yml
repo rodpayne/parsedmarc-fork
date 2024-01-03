@@ -1,4 +1,4 @@
-site_name: "Parsedmarc: Open source DMARC report analyzer and visualizer"
+site_name: "ParseDMARC"
 site_url: https://nhairs.github.io/parsedmarc
 repo_url: https://github.com/nhairs/parsedmarc
 edit_uri: tree/docs/docs
@@ -20,8 +20,9 @@ nav:
   - davmail.md
   - contributing.md
   - changelog.md
-  - dmarc.md
-  - mailing-lists.md
+  - DMARC:
+    - dmarc.md
+    - mailing-lists.md
   - API Reference:
     - ... | reference/parsedmarc/*
 
@@ -29,7 +30,7 @@ theme:
   name: material
 
   icon:
-    logo: material/cube
+    logo: material/email
 
   features:
     - navigation.instant
@@ -66,6 +67,7 @@ markdown_extensions:
   - toc:
       permalink: "🔗"
   - admonition
+  - tables
   - def_list
   - mdx_truly_sane_lists
   - pymdownx.highlight:

@@ -144,6 +144,7 @@ The full set of configuration options are:
   - `check_timeout` - int: Number of seconds to wait for a IMAP
       IDLE response or the number of seconds until the next
       mail check (Default: `30`)
+
 - `imap`
   - `host` - str: The IMAP server hostname or IP address
   - `port` - int: The IMAP server port (Default: `993`)
@@ -165,6 +166,7 @@ The full set of configuration options are:
       verification (not recommended)
   - `user` - str: The IMAP user
   - `password` - str: The IMAP password
+
 - `msgraph`
   - `auth_method` - str: Authentication method, valid types are
       `UsernamePassword`, `DeviceCode`, or `ClientSecret`
@@ -227,12 +229,14 @@ The full set of configuration options are:
     creating the index (Default: `1`)
   - `number_of_replicas` - int: The number of replicas to use when
     creating the index (Default: `0`)
+
 - `splunk_hec`
   - `url` - str: The URL of the Splunk HTTP Events Collector (HEC)
   - `token` - str: The HEC token
   - `index` - str: The Splunk index to use
   - `skip_certificate_verification` - bool: Skip certificate
     verification (not recommended)
+
 - `kafka`
   - `hosts` - str: A comma separated list of Kafka hosts
   - `user` - str: The Kafka user
@@ -242,6 +246,7 @@ The full set of configuration options are:
     verification (not recommended)
   - `aggregate_topic` - str: The Kafka topic for aggregate reports
   - `forensic_topic` - str: The Kafka topic for forensic reports
+
 - `smtp`
   - `host` - str: The SMTP hostname
   - `port` - int: The SMTP port (Default: `25`)
@@ -269,9 +274,11 @@ The full set of configuration options are:
   - `endpoint_url` - str: The endpoint URL (Optional)
   - `access_key_id` - str: The access key id (Optional)
   - `secret_access_key` - str: The secret access key (Optional)
+
 - `syslog`
   - `server` - str: The Syslog server name or IP address
   - `port` - int: The UDP port to use (Default: `514`)
+
 - `gmail_api`
   - `credentials_file` - str: Path to file containing the
       credentials, None to disable (Default: `None`)
@@ -284,6 +291,7 @@ The full set of configuration options are:
       (Default: `https://www.googleapis.com/auth/gmail.modify`)
   - `oauth2_port` - int: The TCP port for the local server to
       listen on for the OAuth2 response (Default: `8080`)
+
 - `log_analytics`
   - `client_id` - str: The app registration's client ID
   - `client_secret` - str: The app registration's client secret
