@@ -32,6 +32,12 @@ import xmltodict
 # Package
 from parsedmarc.log import logger
 from parsedmarc.mail import MailboxConnection
+from parsedmarc.reports import (
+    AggregateReport,
+    ForensicReport,
+    Report,
+    SortedReportContainer,
+)
 from parsedmarc.utils import (
     convert_outlook_msg,
     get_base_domain,
@@ -56,52 +62,6 @@ MAGIC_GZIP = b"\x1F\x8B"
 MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
 
 IP_ADDRESS_CACHE = ExpiringDict(max_len=10000, max_age_seconds=1800)
-
-
-class Report:
-    """Base class for all reports"""
-
-    def __init__(self, data: dict[str, Any]) -> None:
-        self.data = data
-        return
-
-
-class AggregateReport(Report):
-    """A DMARC Aggregate Report"""
-
-
-class ForensicReport(Report):
-    """A DMARC Forensic Report"""
-
-
-class SortedReportContainer:
-    def __init__(
-        self,
-        existing_aggregate_reports: list[AggregateReport] | None = None,
-        existing_forensic_reports: list[ForensicReport] | None = None,
-    ) -> None:
-        self.aggregate_reports: list[AggregateReport] = existing_aggregate_reports or []
-        self.forensic_reports: list[ForensicReport] = existing_forensic_reports or []
-        return
-
-    def add_report(self, report: Report) -> str:
-        """Add a report to this container returning the added type.
-
-        Args:
-            report: the report to add
-
-        Returns:
-            the type of report added
-        """
-        if isinstance(report, AggregateReport):
-            self.aggregate_reports.append(report)
-            return "aggregate"
-
-        if isinstance(report, ForensicReport):
-            self.forensic_reports.append(report)
-            return "forensic"
-
-        raise ValueError(f"Unsupported report type: {type(report)}")
 
 
 class ParserError(RuntimeError):
@@ -530,101 +490,13 @@ def parsed_aggregate_reports_to_csv_rows(
         Parsed aggregate report data as a list of dicts in flat CSV format
     """
 
-    def to_str(obj) -> str:
-        return str(obj).lower()
-
     if isinstance(reports, AggregateReport):
         reports = [reports]
 
-    rows = []
+    rows: list[dict[str, Any]] = []
 
-    for _report in reports:
-        report = _report.data
-        xml_schema = report["xml_schema"]
-        org_name = report["report_metadata"]["org_name"]
-        org_email = report["report_metadata"]["org_email"]
-        org_extra_contact = report["report_metadata"]["org_extra_contact_info"]
-        report_id = report["report_metadata"]["report_id"]
-        begin_date = report["report_metadata"]["begin_date"]
-        end_date = report["report_metadata"]["end_date"]
-        errors = "|".join(report["report_metadata"]["errors"])
-        domain = report["policy_published"]["domain"]
-        adkim = report["policy_published"]["adkim"]
-        aspf = report["policy_published"]["aspf"]
-        p = report["policy_published"]["p"]
-        sp = report["policy_published"]["sp"]
-        pct = report["policy_published"]["pct"]
-        fo = report["policy_published"]["fo"]
-
-        report_dict = dict(
-            xml_schema=xml_schema,
-            org_name=org_name,
-            org_email=org_email,
-            org_extra_contact_info=org_extra_contact,
-            report_id=report_id,
-            begin_date=begin_date,
-            end_date=end_date,
-            errors=errors,
-            domain=domain,
-            adkim=adkim,
-            aspf=aspf,
-            p=p,
-            sp=sp,
-            pct=pct,
-            fo=fo,
-        )
-
-        for record in report["records"]:
-            row = report_dict.copy()
-            row["source_ip_address"] = record["source"]["ip_address"]
-            row["source_country"] = record["source"]["country"]
-            row["source_reverse_dns"] = record["source"]["reverse_dns"]
-            row["source_base_domain"] = record["source"]["base_domain"]
-            row["count"] = record["count"]
-            row["spf_aligned"] = record["alignment"]["spf"]
-            row["dkim_aligned"] = record["alignment"]["dkim"]
-            row["dmarc_aligned"] = record["alignment"]["dmarc"]
-            row["disposition"] = record["policy_evaluated"]["disposition"]
-            policy_override_reasons = list(
-                map(
-                    lambda r_: r_["type"],
-                    record["policy_evaluated"]["policy_override_reasons"],
-                )
-            )
-            policy_override_comments = list(
-                map(
-                    lambda r_: r_["comment"] or "none",
-                    record["policy_evaluated"]["policy_override_reasons"],
-                )
-            )
-            row["policy_override_reasons"] = ",".join(policy_override_reasons)
-            row["policy_override_comments"] = "|".join(policy_override_comments)
-            row["envelope_from"] = record["identifiers"]["envelope_from"]
-            row["header_from"] = record["identifiers"]["header_from"]
-            envelope_to = record["identifiers"]["envelope_to"]
-            row["envelope_to"] = envelope_to
-            dkim_domains = []
-            dkim_selectors = []
-            dkim_results = []
-            for dkim_result in record["auth_results"]["dkim"]:
-                dkim_domains.append(dkim_result["domain"])
-                if "selector" in dkim_result:
-                    dkim_selectors.append(dkim_result["selector"])
-                dkim_results.append(dkim_result["result"])
-            row["dkim_domains"] = ",".join(map(to_str, dkim_domains))
-            row["dkim_selectors"] = ",".join(map(to_str, dkim_selectors))
-            row["dkim_results"] = ",".join(map(to_str, dkim_results))
-            spf_domains = []
-            spf_scopes = []
-            spf_results = []
-            for spf_result in record["auth_results"]["spf"]:
-                spf_domains.append(spf_result["domain"])
-                spf_scopes.append(spf_result["scope"])
-                spf_results.append(spf_result["result"])
-            row["spf_domains"] = ",".join(map(to_str, spf_domains))
-            row["spf_scopes"] = ",".join(map(to_str, spf_scopes))
-            row["spf_results"] = ",".join(map(to_str, spf_results))
-            rows.append(row)
+    for report in reports:
+        rows += report.to_csv_rows()
 
     for r in rows:
         for k, v in r.items():
@@ -643,47 +515,8 @@ def parsed_aggregate_reports_to_csv(reports: AggregateReport | list[AggregateRep
     Returns:
         Parsed aggregate report data in flat CSV format, including headers
     """
-
-    fields = [
-        "xml_schema",
-        "org_name",
-        "org_email",
-        "org_extra_contact_info",
-        "report_id",
-        "begin_date",
-        "end_date",
-        "errors",
-        "domain",
-        "adkim",
-        "aspf",
-        "p",
-        "sp",
-        "pct",
-        "fo",
-        "source_ip_address",
-        "source_country",
-        "source_reverse_dns",
-        "source_base_domain",
-        "count",
-        "spf_aligned",
-        "dkim_aligned",
-        "dmarc_aligned",
-        "disposition",
-        "policy_override_reasons",
-        "policy_override_comments",
-        "envelope_from",
-        "header_from",
-        "envelope_to",
-        "dkim_domains",
-        "dkim_selectors",
-        "dkim_results",
-        "spf_domains",
-        "spf_scopes",
-        "spf_results",
-    ]
-
     csv_file_object = StringIO(newline="\n")
-    writer = DictWriter(csv_file_object, fields)
+    writer = DictWriter(csv_file_object, AggregateReport.CSV_FIELDS)
     writer.writeheader()
 
     rows = parsed_aggregate_reports_to_csv_rows(reports)
@@ -834,24 +667,10 @@ def parsed_forensic_reports_to_csv_rows(
     if isinstance(reports, ForensicReport):
         reports = [reports]
 
-    rows = []
+    rows: list[dict[str, Any]] = []
 
-    for _report in reports:
-        report = _report.data
-        row = report.copy()
-        row["source_ip_address"] = report["source"]["ip_address"]
-        row["source_reverse_dns"] = report["source"]["reverse_dns"]
-        row["source_base_domain"] = report["source"]["base_domain"]
-        row["source_country"] = report["source"]["country"]
-        del row["source"]
-        row["subject"] = report["parsed_sample"]["subject"]
-        row["auth_failure"] = ",".join(report["auth_failure"])
-        authentication_mechanisms = report["authentication_mechanisms"]
-        row["authentication_mechanisms"] = ",".join(authentication_mechanisms)
-        del row["sample"]
-        del row["parsed_sample"]
-        rows.append(row)
-
+    for report in reports:
+        rows.append(report.to_csv_row())
     return rows
 
 
@@ -864,32 +683,8 @@ def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport
     Returns:
         Parsed forensic report data in flat CSV format, including headers
     """
-    fields = [
-        "feedback_type",
-        "user_agent",
-        "version",
-        "original_envelope_id",
-        "original_mail_from",
-        "original_rcpt_to",
-        "arrival_date",
-        "arrival_date_utc",
-        "subject",
-        "message_id",
-        "authentication_results",
-        "dkim_domain",
-        "source_ip_address",
-        "source_country",
-        "source_reverse_dns",
-        "source_base_domain",
-        "delivery_result",
-        "auth_failure",
-        "reported_domain",
-        "authentication_mechanisms",
-        "sample_headers_only",
-    ]
-
     csv_file = StringIO()
-    csv_writer = DictWriter(csv_file, fieldnames=fields)
+    csv_writer = DictWriter(csv_file, fieldnames=ForensicReport.CSV_FIELDS)
     csv_writer.writeheader()
 
     rows = parsed_forensic_reports_to_csv_rows(reports)
@@ -901,23 +696,6 @@ def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport
         csv_writer.writerow(new_row)
 
     return csv_file.getvalue()
-
-
-class ReportParser:
-    """DMARC Report Parser"""
-
-    def __init__(
-        self,
-        offline: bool = False,
-        ip_db_path: str | None = None,
-        nameservers: list[str] | None = None,
-        dns_timeout: float = 2.0,
-    ) -> None:
-        self.offline = offline
-        self.ip_db_path = ip_db_path
-        self.nameservers = nameservers
-        self.dns_timeout = dns_timeout
-        return
 
 
 def parse_report_email(
