@@ -86,7 +86,6 @@ def _parse_report_record(
     offline: bool = False,
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
-    parallel: bool = False,
 ) -> dict:
     """Convert a record from a DMARC aggregate report into a more consistent format
 
@@ -110,7 +109,6 @@ def _parse_report_record(
         offline=offline,
         nameservers=nameservers,
         timeout=dns_timeout,
-        parallel=parallel,
     )
     new_record["source"] = new_record_source
     new_record["count"] = int(record["row"]["count"])
@@ -231,7 +229,6 @@ def parse_aggregate_report_xml(
     offline: bool = False,
     nameservers: list[str] | None = None,
     timeout: float = 2.0,
-    parallel: bool = False,
     keep_alive: Callable | None = None,
 ) -> AggregateReport:
     """Parses a DMARC XML report string and returns an AggregateReport
@@ -242,7 +239,6 @@ def parse_aggregate_report_xml(
         offline: Do not query online for geolocation or DNS
         nameservers: A list of one or more nameservers to use (Cloudflare's public DNS resolvers by default)
         timeout: Sets the DNS timeout in seconds
-        parallel: Parallel processing
         keep_alive: Keep alive function
 
     Returns:
@@ -361,7 +357,6 @@ def parse_aggregate_report_xml(
                     offline=offline,
                     nameservers=nameservers,
                     dns_timeout=timeout,
-                    parallel=parallel,
                 )
                 records.append(report_record)
 
@@ -372,7 +367,6 @@ def parse_aggregate_report_xml(
                 offline=offline,
                 nameservers=nameservers,
                 dns_timeout=timeout,
-                parallel=parallel,
             )
             records.append(report_record)
 
@@ -447,7 +441,6 @@ def parse_aggregate_report_file(
     ip_db_path: str | None = None,
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
-    parallel: bool = False,
     keep_alive: Callable | None = None,
 ) -> AggregateReport:
     """Parse a file at the given path, a file-like object. or bytes as an aggregate DMARC report
@@ -459,7 +452,6 @@ def parse_aggregate_report_file(
         nameservers: A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout: Sets the DNS timeout in seconds
-        parallel: Parallel processing
         keep_alive: Keep alive function
 
     Returns:
@@ -471,7 +463,6 @@ def parse_aggregate_report_file(
         offline=offline,
         nameservers=nameservers,
         timeout=dns_timeout,
-        parallel=parallel,
         keep_alive=keep_alive,
     )
 
@@ -535,7 +526,6 @@ def parse_forensic_report(
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
     strip_attachment_payloads: bool = False,
-    parallel: bool = False,
 ) -> ForensicReport:
     """Converts a DMARC forensic report and sample to a ForensicReport
 
@@ -548,7 +538,6 @@ def parse_forensic_report(
         nameservers (list): A list of one or more nameservers to use (Cloudflare's public DNS resolvers by default)
         dns_timeout: Sets the DNS timeout in seconds
         strip_attachment_payloads: Remove attachment payloads from forensic report results
-        parallel: Parallel processing
 
     Returns:
         A parsed report and sample
@@ -594,7 +583,6 @@ def parse_forensic_report(
             offline=offline,
             nameservers=nameservers,
             timeout=dns_timeout,
-            parallel=parallel,
         )
         parsed_report["source"] = parsed_report_source
         del parsed_report["source_ip"]
@@ -703,7 +691,6 @@ def parse_report_email(
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
     strip_attachment_payloads: bool = False,
-    parallel: bool = False,
     keep_alive: Callable | None = None,
 ) -> Report:
     """Parse a DMARC report from an email
@@ -715,7 +702,6 @@ def parse_report_email(
         nameservers: A list of one or more nameservers to use
         dns_timeout: Sets the DNS timeout in seconds
         strip_attachment_payloads: Remove attachment payloads from forensic report results
-        parallel: Parallel processing
         keep_alive: keep alive function
 
     Returns:
@@ -792,7 +778,6 @@ def parse_report_email(
                         offline=offline,
                         nameservers=ns,
                         dns_timeout=dns_timeout,
-                        parallel=parallel,
                         keep_alive=keep_alive,
                     )
                     return aggregate_report
@@ -820,7 +805,6 @@ def parse_report_email(
                 nameservers=nameservers,
                 dns_timeout=dns_timeout,
                 strip_attachment_payloads=strip_attachment_payloads,
-                parallel=parallel,
             )
         except InvalidForensicReport as e:
             error = f"Message with subject {subject!r} is not a valid forensic DMARC report: {e!r}"
@@ -841,7 +825,6 @@ def parse_report_file(
     strip_attachment_payloads: bool = False,
     ip_db_path: str | None = None,
     offline: bool = False,
-    parallel: bool = False,
     keep_alive: Callable | None = None,
 ) -> Report:
     """Parse a DMARC aggregate or forensic file at the given path, a file-like object. or bytes
@@ -853,7 +836,6 @@ def parse_report_file(
         strip_attachment_payloads: Remove attachment payloads from forensic report results
         ip_db_path: Path to a MMDB file from MaxMind or DBIP
         offline: Do not make online queries for geolocation or DNS
-        parallel: Parallel processing
         keep_alive: Keep alive function
 
     Returns:
@@ -880,7 +862,6 @@ def parse_report_file(
             offline=offline,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
-            parallel=parallel,
             keep_alive=keep_alive,
         )
 
@@ -893,11 +874,10 @@ def parse_report_file(
                 nameservers=nameservers,
                 dns_timeout=dns_timeout,
                 strip_attachment_payloads=strip_attachment_payloads,
-                parallel=parallel,
                 keep_alive=keep_alive,
             )
         except InvalidDMARCReport:
-            raise InvalidDMARCReport("Not a valid aggregate or forensic " "report")
+            raise InvalidDMARCReport("Not a valid aggregate or forensic report")
     return report
 
 
@@ -908,7 +888,6 @@ def get_dmarc_reports_from_mbox(
     strip_attachment_payloads: bool = False,
     ip_db_path: str | None = None,
     offline: bool = False,
-    parallel: bool = False,
 ) -> SortedReportContainer:
     """Parses a mailbox in mbox format containing e-mails with attached DMARC reports
 
@@ -919,7 +898,6 @@ def get_dmarc_reports_from_mbox(
         strip_attachment_payloads: Remove attachment payloads from forensic report results
         ip_db_path: Path to a MMDB file from MaxMind or DBIP
         offline: Do not make online queries for geolocation or DNS
-        parallel: Parallel processing
 
     Returns:
         container of reports
@@ -943,7 +921,6 @@ def get_dmarc_reports_from_mbox(
                     nameservers=nameservers,
                     dns_timeout=dns_timeout,
                     strip_attachment_payloads=sa,
-                    parallel=parallel,
                 )
                 reports.add_report(parsed_email)
             except InvalidDMARCReport as error:

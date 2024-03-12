@@ -309,7 +309,6 @@ def get_ip_address_info(
     offline: bool = False,
     nameservers: list[str] | None = None,
     timeout: float = 2.0,
-    parallel: bool = False,
 ) -> dict[str, Any]:
     """Get reverse DNS and country information for the given IP address
 
@@ -320,7 +319,6 @@ def get_ip_address_info(
         offline: Do not make online queries for geolocation or DNS
         nameservers: A list of one or more nameservers to use (Cloudflare's public DNS resolvers by default)
         timeout: Sets the DNS timeout in seconds
-        parallel: parallel processing (not used)
 
     Returns:
         Dictionary of (`ip_address`, `country`, `reverse_dns`, `base_domain`)
