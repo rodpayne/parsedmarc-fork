@@ -392,23 +392,23 @@ def parse_aggregate_report_xml(
         raise InvalidAggregateReport(f"Unexpected error: {error!r}")
 
 
-def extract_xml(input_: str | bytes | BinaryIO) -> str:
+def extract_xml(source: str | bytes | BinaryIO) -> str:
     """Extracts xml from a zip or gzip file at the given path, file-like object, or bytes.
 
     Args:
-        input_: A path to a file, a file like object, or bytes
+        source: A path to a file, a file like object, or bytes
 
     Returns:
         The extracted XML
     """
     file_object: BinaryIO
     try:
-        if isinstance(input_, str):
-            file_object = open(input_, "rb")
-        elif isinstance(input_, bytes):
-            file_object = BytesIO(input_)
+        if isinstance(source, str):
+            file_object = open(source, "rb")
+        elif isinstance(source, bytes):
+            file_object = BytesIO(source)
         else:
-            file_object = input_
+            file_object = source
 
         header = file_object.read(6)
         file_object.seek(0)
@@ -442,7 +442,7 @@ def extract_xml(input_: str | bytes | BinaryIO) -> str:
 
 
 def parse_aggregate_report_file(
-    _input: bytes | str | BinaryIO,
+    source: bytes | str | BinaryIO,
     offline: bool = False,
     ip_db_path: str | None = None,
     nameservers: list[str] | None = None,
@@ -453,7 +453,7 @@ def parse_aggregate_report_file(
     """Parse a file at the given path, a file-like object. or bytes as an aggregate DMARC report
 
     Args:
-        _input: A path to a file, a file like object, or bytes
+        source: A path to a file, a file like object, or bytes
         offline: Do not query online for geolocation or DNS
         ip_db_path: Path to a MMDB file from MaxMind or DBIP
         nameservers: A list of one or more nameservers to use
@@ -465,10 +465,8 @@ def parse_aggregate_report_file(
     Returns:
         The parsed DMARC aggregate report
     """
-    xml = extract_xml(_input)
-
     return parse_aggregate_report_xml(
-        xml,
+        extract_xml(source),
         ip_db_path=ip_db_path,
         offline=offline,
         nameservers=nameservers,
@@ -699,7 +697,7 @@ def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport
 
 
 def parse_report_email(
-    input_: bytes | str,
+    source: bytes | str,
     offline: bool = False,
     ip_db_path: str | None = None,
     nameservers: list[str] | None = None,
@@ -711,7 +709,7 @@ def parse_report_email(
     """Parse a DMARC report from an email
 
     Args:
-        input_: An emailed DMARC report in RFC 822 format, as bytes or a string
+        source: An emailed DMARC report in RFC 822 format, as bytes or a string
         offline: Do not query online for geolocation on DNS
         ip_db_path: Path to a MMDB file from MaxMind or DBIP
         nameservers: A list of one or more nameservers to use
@@ -724,17 +722,17 @@ def parse_report_email(
         report container
     """
     try:
-        if isinstance(input_, bytes) and is_outlook_msg(input_):
-            input_ = convert_outlook_msg(input_)
-        if isinstance(input_, bytes):
-            input_ = input_.decode(encoding="utf8", errors="replace")
-        msg = mailparser.parse_from_string(input_)
+        if isinstance(source, bytes) and is_outlook_msg(source):
+            source = convert_outlook_msg(source)
+        if isinstance(source, bytes):
+            source = source.decode(encoding="utf8", errors="replace")
+        msg = mailparser.parse_from_string(source)
         msg_headers = json.loads(msg.headers_json)
         if "Date" in msg_headers:
             date = human_timestamp_to_datetime(msg_headers["Date"])
         else:
             date = datetime.utcnow()
-        msg = email.message_from_string(input_)
+        msg = email.message_from_string(source)
 
     except Exception as e:
         raise InvalidDMARCReport(e.__str__())
@@ -837,7 +835,7 @@ def parse_report_email(
 
 
 def parse_report_file(
-    input_: str | bytes | BinaryIO,
+    source: str | bytes | BinaryIO,
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
     strip_attachment_payloads: bool = False,
@@ -849,7 +847,7 @@ def parse_report_file(
     """Parse a DMARC aggregate or forensic file at the given path, a file-like object. or bytes
 
     Args:
-        input_: A path to a file, a file like object, or bytes
+        source: A path to a file, a file like object, or bytes
         nameservers: A list of one or more nameservers to use (Cloudflare's public DNS resolvers by default)
         dns_timeout: Sets the DNS timeout in seconds
         strip_attachment_payloads: Remove attachment payloads from forensic report results
@@ -862,13 +860,13 @@ def parse_report_file(
         The parsed DMARC report
     """
     file_object: BinaryIO
-    if isinstance(input_, str):
-        logger.debug(f"Parsing {input_}")
-        file_object = open(input_, "rb")
-    elif isinstance(input_, bytes):
-        file_object = BytesIO(input_)
+    if isinstance(source, str):
+        logger.debug(f"Parsing {source}")
+        file_object = open(source, "rb")
+    elif isinstance(source, bytes):
+        file_object = BytesIO(source)
     else:
-        file_object = input_
+        file_object = source
 
     content = file_object.read()
     file_object.close()
@@ -904,7 +902,7 @@ def parse_report_file(
 
 
 def get_dmarc_reports_from_mbox(
-    input_: str,
+    source: str,
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
     strip_attachment_payloads: bool = False,
@@ -915,7 +913,7 @@ def get_dmarc_reports_from_mbox(
     """Parses a mailbox in mbox format containing e-mails with attached DMARC reports
 
     Args:
-        input_: A path to a mbox file
+        source: A path to a mbox file
         nameservers: A list of one or more nameservers to use (Cloudflare's public DNS resolvers by default)
         dns_timeout: Sets the DNS timeout in seconds
         strip_attachment_payloads: Remove attachment payloads from forensic report results
@@ -928,10 +926,10 @@ def get_dmarc_reports_from_mbox(
     """
     reports = SortedReportContainer()
     try:
-        mbox = mailbox.mbox(input_)
+        mbox = mailbox.mbox(source)
         message_keys = mbox.keys()
         total_messages = len(message_keys)
-        logger.debug(f"Found {total_messages} messages in {input_}")
+        logger.debug(f"Found {total_messages} messages in {source}")
         for i in range(len(message_keys)):
             message_key = message_keys[i]
             logger.info(f"Processing message {i+1} of {total_messages}")
@@ -951,7 +949,7 @@ def get_dmarc_reports_from_mbox(
             except InvalidDMARCReport as error:
                 logger.warning(error.__str__())
     except mailbox.NoSuchMailboxError:
-        raise InvalidDMARCReport(f"Mailbox {input_} does not exist")
+        raise InvalidDMARCReport(f"Mailbox {source} does not exist")
     return reports
 
 
