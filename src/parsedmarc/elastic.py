@@ -1,8 +1,5 @@
+# Future
 from __future__ import annotations
-
-# Standard Library
-from collections import OrderedDict
-from typing import Any
 
 # Installed
 from elasticsearch.helpers import reindex
@@ -23,7 +20,7 @@ from elasticsearch_dsl import (
 from elasticsearch_dsl.search import Q
 
 # Package
-from parsedmarc import InvalidForensicReport
+from parsedmarc import AggregateReport, ForensicReport, InvalidForensicReport
 from parsedmarc.log import logger
 from parsedmarc.utils import human_timestamp_to_datetime
 
@@ -292,7 +289,7 @@ def migrate_indexes(
 
 
 def save_aggregate_report_to_elasticsearch(
-    aggregate_report: OrderedDict[str, Any],
+    report: AggregateReport,
     index_suffix: str | None = None,
     monthly_indexes: bool = False,
     number_of_shards: int = 1,
@@ -302,7 +299,7 @@ def save_aggregate_report_to_elasticsearch(
     Saves a parsed DMARC aggregate report to ElasticSearch
 
     Args:
-        aggregate_report: A parsed forensic report
+        report: A parsed forensic report
         index_suffix: The suffix of the name of the index to save to
         monthly_indexes: Use monthly indexes instead of daily indexes
         number_of_shards: The number of shards to use in the index
@@ -312,7 +309,7 @@ def save_aggregate_report_to_elasticsearch(
             AlreadySaved
     """
     logger.info("Saving aggregate report to Elasticsearch")
-    aggregate_report = aggregate_report.copy()
+    aggregate_report = report.data.copy()
     metadata = aggregate_report["report_metadata"]
     org_name = metadata["org_name"]
     report_id = metadata["report_id"]
@@ -426,7 +423,7 @@ def save_aggregate_report_to_elasticsearch(
 
 
 def save_forensic_report_to_elasticsearch(
-    forensic_report: OrderedDict[str, Any],
+    report: ForensicReport,
     index_suffix: str | None = None,
     monthly_indexes: bool = False,
     number_of_shards: int = 1,
@@ -435,7 +432,7 @@ def save_forensic_report_to_elasticsearch(
     """Save a parsed DMARC forensic report to ElasticSearch
 
     Args:
-        forensic_report: A parsed forensic report
+        report: A parsed forensic report
         index_suffix: The suffix of the name of the index to save to
         monthly_indexes: Use monthly indexes instead of daily indexes
         number_of_shards: The number of shards to use in the index
@@ -445,13 +442,13 @@ def save_forensic_report_to_elasticsearch(
         AlreadySaved
     """
     logger.info("Saving forensic report to Elasticsearch")
-    forensic_report = forensic_report.copy()
+    forensic_report = report.data.copy()
     sample_date = None
     if forensic_report["parsed_sample"]["date"] is not None:
         sample_date = forensic_report["parsed_sample"]["date"]
         sample_date = human_timestamp_to_datetime(sample_date)
     original_headers = forensic_report["parsed_sample"]["headers"]
-    headers = OrderedDict()
+    headers = {}
     for original_header in original_headers:
         headers[original_header.lower()] = original_headers[original_header]
 

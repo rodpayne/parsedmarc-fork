@@ -5,6 +5,8 @@ import logging.handlers
 
 # Package
 from parsedmarc import (
+    AggregateReport,
+    ForensicReport,
     parsed_aggregate_reports_to_csv_rows,
     parsed_forensic_reports_to_csv_rows,
 )
@@ -26,12 +28,14 @@ class SyslogClient:
         log_handler = logging.handlers.SysLogHandler(address=(server_name, server_port))
         self.logger.addHandler(log_handler)
 
-    def save_aggregate_report_to_syslog(self, aggregate_reports):
+    def save_aggregate_report_to_syslog(self, aggregate_reports: list[AggregateReport]):
         rows = parsed_aggregate_reports_to_csv_rows(aggregate_reports)
         for row in rows:
             self.logger.info(json.dumps(row))
+        return
 
-    def save_forensic_report_to_syslog(self, forensic_reports):
+    def save_forensic_report_to_syslog(self, forensic_reports: list[ForensicReport]):
         rows = parsed_forensic_reports_to_csv_rows(forensic_reports)
         for row in rows:
             self.logger.info(json.dumps(row))
+        return

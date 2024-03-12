@@ -1,7 +1,7 @@
+# Future
 from __future__ import annotations
 
 # Standard Library
-from collections import OrderedDict
 import json
 from ssl import SSLContext, create_default_context
 
@@ -10,7 +10,7 @@ from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable, UnknownTopicOrPartitionError
 
 # Package
-from parsedmarc import __version__
+from parsedmarc import AggregateReport, ForensicReport, __version__
 from parsedmarc.log import logger
 from parsedmarc.utils import human_timestamp_to_datetime
 
@@ -95,7 +95,7 @@ class KafkaClient:
         return date_range
 
     def save_aggregate_reports_to_kafka(
-        self, aggregate_reports: OrderedDict | list[OrderedDict], aggregate_topic: str
+        self, aggregate_reports: AggregateReport | list[AggregateReport], aggregate_topic: str
     ) -> None:
         """
         Saves aggregate DMARC reports to Kafka
@@ -105,13 +105,14 @@ class KafkaClient:
             aggregate_topic: The name of the Kafka topic
 
         """
-        if isinstance(aggregate_reports, dict):
+        if isinstance(aggregate_reports, AggregateReport):
             aggregate_reports = [aggregate_reports]
 
         if not aggregate_reports:
             return
 
-        for report in aggregate_reports:
+        for _report in aggregate_reports:
+            report = _report.data.copy()
             report["date_range"] = self.generate_daterange(report)
             report = self.strip_metadata(report)
 
@@ -136,7 +137,7 @@ class KafkaClient:
         return
 
     def save_forensic_reports_to_kafka(
-        self, forensic_reports: OrderedDict | list[OrderedDict], forensic_topic: str
+        self, forensic_reports: ForensicReport | list[ForensicReport], forensic_topic: str
     ) -> None:
         """
         Saves forensic DMARC reports to Kafka, sends individual
@@ -148,15 +149,17 @@ class KafkaClient:
             forensic_topic: The name of the Kafka topic
 
         """
-        if isinstance(forensic_reports, dict):
+        if isinstance(forensic_reports, ForensicReport):
             forensic_reports = [forensic_reports]
 
         if not forensic_reports:
             return
 
+        reports = [r.data for r in forensic_reports]
+
         try:
             logger.debug("Saving forensic reports to Kafka")
-            self.producer.send(forensic_topic, forensic_reports)
+            self.producer.send(forensic_topic, reports)
         except UnknownTopicOrPartitionError:
             raise KafkaError("Unknown topic or partition on broker")
         except Exception as e:

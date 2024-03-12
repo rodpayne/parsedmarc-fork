@@ -3,7 +3,6 @@
 
 # Standard Library
 from argparse import ArgumentParser, Namespace
-from collections import OrderedDict
 from configparser import ConfigParser
 from glob import glob
 from itertools import repeat
@@ -23,6 +22,7 @@ from tqdm import tqdm
 from parsedmarc import (
     InvalidDMARCReport,
     ParserError,
+    SortedReportContainer,
     __version__,
     elastic,
     email_results,
@@ -86,7 +86,7 @@ def init(ctr):
 def _main():
     """Called when the module is executed"""
 
-    def process_reports(reports_):
+    def process_reports(reports_: SortedReportContainer):
         output_str = json.dumps(reports_, ensure_ascii=False, indent=2) + "\n"
 
         if not opts.silent:
@@ -101,87 +101,109 @@ def _main():
                 forensic_csv_filename=opts.forensic_csv_filename,
             )
         if opts.save_aggregate:
-            for report in reports_["aggregate_reports"]:
-                try:
-                    if opts.elasticsearch_hosts:
+            for aggregate_report in reports_.aggregate_reports:
+                # Elasticsearch
+                if opts.elasticsearch_hosts:
+                    try:
                         shards = opts.elasticsearch_number_of_shards
                         replicas = opts.elasticsearch_number_of_replicas
                         elastic.save_aggregate_report_to_elasticsearch(
-                            report,
+                            aggregate_report,
                             index_suffix=opts.elasticsearch_index_suffix,
                             monthly_indexes=opts.elasticsearch_monthly_indexes,
                             number_of_shards=shards,
                             number_of_replicas=replicas,
                         )
-                except elastic.AlreadySaved as warning:
-                    logger.warning(warning.__str__())
-                except elastic.ElasticsearchError as error_:
-                    logger.error(f"Elasticsearch Error: {error_!r}")
-                except Exception as error_:
-                    logger.error(f"Elasticsearch exception error: {error_!r}")
+                    except elastic.AlreadySaved as warning:
+                        logger.warning(warning.__str__())
+                    except elastic.ElasticsearchError as error_:
+                        logger.error(f"Elasticsearch Error: {error_!r}")
+                    except Exception as error_:
+                        logger.error(f"Elasticsearch exception error: {error_!r}")
+
+                # AWS S3
+                if opts.s3_bucket:
+                    try:
+                        s3_client.save_aggregate_report_to_s3(aggregate_report)
+                    except Exception as error_:
+                        logger.error(f"S3 Error: {error_!r}")
+
+                # Syslog
+                if opts.syslog_server:
+                    try:
+                        syslog_client.save_aggregate_report_to_syslog(aggregate_report)
+                    except Exception as error_:
+                        logger.error(f"Syslog Error: {error_!r}")
+
+            # store in backends that support list of reports
+            # Kafka
+            if opts.kafka_hosts:
                 try:
-                    if opts.kafka_hosts:
-                        kafka_client.save_aggregate_reports_to_kafka(report, kafka_aggregate_topic)
+                    kafka_client.save_aggregate_reports_to_kafka(
+                        reports_.aggregate_reports, kafka_aggregate_topic
+                    )
                 except Exception as error_:
                     logger.error(f"Kafka Error: {error_!r}")
-                try:
-                    if opts.s3_bucket:
-                        s3_client.save_aggregate_report_to_s3(report)
-                except Exception as error_:
-                    logger.error(f"S3 Error: {error_!r}")
-                try:
-                    if opts.syslog_server:
-                        syslog_client.save_aggregate_report_to_syslog(report)
-                except Exception as error_:
-                    logger.error(f"Syslog Error: {error_!r}")
+
+            # Splunk HEC
             if opts.hec:
                 try:
-                    aggregate_reports_ = reports_["aggregate_reports"]
-                    if len(aggregate_reports_) > 0:
-                        hec_client.save_aggregate_reports_to_splunk(aggregate_reports_)
+                    hec_client.save_aggregate_reports_to_splunk(reports_.aggregate_reports)
                 except splunk.SplunkError as e:
                     logger.error(f"Splunk HEC error: {e!r}")
+
         if opts.save_forensic:
-            for report in reports_["forensic_reports"]:
-                try:
-                    shards = opts.elasticsearch_number_of_shards
-                    replicas = opts.elasticsearch_number_of_replicas
-                    if opts.elasticsearch_hosts:
+            for forensic_report in reports_.forensic_reports:
+                # Elasticsearch
+                if opts.elasticsearch_hosts:
+                    try:
                         elastic.save_forensic_report_to_elasticsearch(
-                            report,
+                            forensic_report,
                             index_suffix=opts.elasticsearch_index_suffix,
                             monthly_indexes=opts.elasticsearch_monthly_indexes,
-                            number_of_shards=shards,
-                            number_of_replicas=replicas,
+                            number_of_shards=opts.elasticsearch_number_of_shards,
+                            number_of_replicas=opts.elasticsearch_number_of_replicas,
                         )
-                except elastic.AlreadySaved as warning:
-                    logger.warning(warning.__str__())
-                except elastic.ElasticsearchError as error_:
-                    logger.error(f"Elasticsearch Error: {error_!r}")
-                except InvalidDMARCReport as error_:
-                    logger.error(error_.__str__())
+                    except elastic.AlreadySaved as warning:
+                        logger.warning(warning.__str__())
+                    except elastic.ElasticsearchError as error_:
+                        logger.error(f"Elasticsearch Error: {error_!r}")
+                    except InvalidDMARCReport as error_:
+                        logger.error(error_.__str__())
+
+                # AWS S3
+                if opts.s3_bucket:
+                    try:
+                        s3_client.save_forensic_report_to_s3(forensic_report)
+                    except Exception as error_:
+                        logger.error(f"S3 Error: {error_!r}")
+
+                # Syslog
+                if opts.syslog_server:
+                    try:
+                        syslog_client.save_forensic_report_to_syslog(forensic_report)
+                    except Exception as error_:
+                        logger.error(f"Syslog Error: {error_!r}")
+
+            # store in backends that support list of reports
+            # Kafka
+            if opts.kafka_hosts:
                 try:
-                    if opts.kafka_hosts:
-                        kafka_client.save_forensic_reports_to_kafka(report, kafka_forensic_topic)
+                    kafka_client.save_forensic_reports_to_kafka(
+                        reports_.forensic_reports, kafka_forensic_topic
+                    )
                 except Exception as error_:
                     logger.error(f"Kafka Error: {error_!r}")
-                try:
-                    if opts.s3_bucket:
-                        s3_client.save_forensic_report_to_s3(report)
-                except Exception as error_:
-                    logger.error(f"S3 Error: {error_!r}")
-                try:
-                    if opts.syslog_server:
-                        syslog_client.save_forensic_report_to_syslog(report)
-                except Exception as error_:
-                    logger.error(f"Syslog Error: {error_!r}")
+
+            # Splunk HEC
             if opts.hec:
                 try:
-                    forensic_reports_ = reports_["forensic_reports"]
-                    if len(forensic_reports_) > 0:
-                        hec_client.save_forensic_reports_to_splunk(forensic_reports_)
+                    hec_client.save_forensic_reports_to_splunk(reports_.forensic_reports)
                 except splunk.SplunkError as e:
                     logger.error(f"Splunk HEC error: {e!r}")
+
+        # Store in backends that support SortedReportContainer
+        # Azure LogAnalytics
         if opts.la_dce:
             try:
                 la_client = loganalytics.LogAnalyticsClient(
@@ -203,6 +225,7 @@ def _main():
                     + " to Log Analitics: "
                     + e.__str__()
                 )
+        return
 
     arg_parser = ArgumentParser(description="Parses DMARC reports")
     arg_parser.add_argument(
@@ -265,8 +288,7 @@ def _main():
     arg_parser.add_argument("--log-file", default=None, help="output logging to a file")
     arg_parser.add_argument("-v", "--version", action="version", version=__version__)
 
-    aggregate_reports = []
-    forensic_reports = []
+    reports = SortedReportContainer()
 
     args = arg_parser.parse_args()
 
@@ -918,10 +940,7 @@ def _main():
         if type(result[0]) is InvalidDMARCReport:
             logger.error(f"Failed to parse {result[1]} - {result[0]}")
         else:
-            if result[0]["report_type"] == "aggregate":
-                aggregate_reports.append(result[0]["report"])
-            elif result[0]["report_type"] == "forensic":
-                forensic_reports.append(result[0]["report"])
+            reports.add_report(result[0])
 
     for mbox_path in mbox_paths:
         strip = opts.strip_attachment_payloads
@@ -934,8 +953,8 @@ def _main():
             offline=opts.offline,
             parallel=False,
         )
-        aggregate_reports += reports["aggregate_reports"]
-        forensic_reports += reports["forensic_reports"]
+        reports.aggregate_reports += reports["aggregate_reports"]
+        reports.forensic_reports += reports["forensic_reports"]
 
     mailbox_connection = None
     if opts.imap_host:
@@ -1025,21 +1044,14 @@ def _main():
                 strip_attachment_payloads=opts.strip_attachment_payloads,
             )
 
-            aggregate_reports += reports["aggregate_reports"]
-            forensic_reports += reports["forensic_reports"]
+            reports.aggregate_reports += reports["aggregate_reports"]
+            reports.forensic_reports += reports["forensic_reports"]
 
         except Exception:
             logger.exception("Mailbox Error")
             exit(1)
 
-    results = OrderedDict(
-        [
-            ("aggregate_reports", aggregate_reports),
-            ("forensic_reports", forensic_reports),
-        ]
-    )
-
-    process_reports(results)
+    process_reports(reports)
 
     if opts.smtp_host:
         try:
@@ -1047,7 +1059,7 @@ def _main():
             if opts.smtp_skip_certificate_verification:
                 verify = False
             email_results(
-                results,
+                reports,
                 opts.smtp_host,
                 opts.smtp_from,
                 opts.smtp_to,

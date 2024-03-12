@@ -38,7 +38,7 @@ class Test(unittest.TestCase):
             if os.path.isdir(sample_path):
                 continue
             print(f"Testing {sample_path}: ", end="")
-            parsed_report = parsedmarc.parse_report_file(sample_path)["report"]
+            parsed_report = parsedmarc.parse_report_file(sample_path)
             parsedmarc.parsed_aggregate_reports_to_csv(parsed_report)
             print("Passed!")
 
@@ -58,8 +58,8 @@ class Test(unittest.TestCase):
             print("Testing {0}: ".format(sample_path), end="")
             with open(sample_path) as sample_file:
                 sample_content = sample_file.read()
-                parsed_report = parsedmarc.parse_report_email(sample_content)["report"]
-            parsed_report = parsedmarc.parse_report_file(sample_path)["report"]
+                parsed_report = parsedmarc.parse_report_email(sample_content)
+            parsed_report = parsedmarc.parse_report_file(sample_path)
             parsedmarc.parsed_forensic_reports_to_csv(parsed_report)
             print("Passed!")
         return

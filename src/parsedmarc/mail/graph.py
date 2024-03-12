@@ -1,14 +1,16 @@
+# Future
 from __future__ import annotations
 
 # Standard Library
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from time import sleep
 import sys
+from time import sleep
 from typing import Any
 
 if sys.version_info < (3, 10):
+    # Installed
     from typing_extensions import TypeAlias
 else:
     from typing import TypeAlias

@@ -1,11 +1,11 @@
 """Utility functions that might be useful for other projects"""
 
+# Future
 from __future__ import annotations
 
 # Standard Library
 import atexit
 import base64
-from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 import hashlib
 import importlib.resources
@@ -310,7 +310,7 @@ def get_ip_address_info(
     nameservers: list[str] | None = None,
     timeout: float = 2.0,
     parallel: bool = False,
-) -> OrderedDict:
+) -> dict[str, Any]:
     """Get reverse DNS and country information for the given IP address
 
     Args:
@@ -331,7 +331,7 @@ def get_ip_address_info(
         info = cache.get(ip_address, None)
         if info:
             return info
-    info = OrderedDict()
+    info = {}
     info["ip_address"] = ip_address
     if offline:
         reverse_dns = None
@@ -348,7 +348,7 @@ def get_ip_address_info(
     return info
 
 
-def parse_email_address(original_address: str) -> OrderedDict:
+def parse_email_address(original_address: str) -> dict[str, Any]:
     """Parse an email into parts"""
     if original_address[0] == "":
         display_name = None
@@ -362,14 +362,12 @@ def parse_email_address(original_address: str) -> OrderedDict:
         local = address_parts[0].lower()
         domain = address_parts[-1].lower()
 
-    return OrderedDict(
-        [
-            ("display_name", display_name),
-            ("address", address),
-            ("local", local),
-            ("domain", domain),
-        ]
-    )
+    return {
+        "display_name": display_name,
+        "address": address,
+        "local": local,
+        "domain": domain,
+    }
 
 
 def get_filename_safe_string(string: str) -> str:

@@ -1,3 +1,4 @@
+# Future
 from __future__ import annotations
 
 # Standard Library
@@ -11,7 +12,7 @@ import requests
 import urllib3
 
 # Package
-from parsedmarc import __version__
+from parsedmarc import AggregateReport, ForensicReport, __version__
 from parsedmarc.log import logger
 from parsedmarc.utils import human_timestamp_to_timestamp
 
@@ -71,14 +72,16 @@ class HECClient:
         }
         return
 
-    def save_aggregate_reports_to_splunk(self, aggregate_reports: dict | list[dict[str, Any]]):
+    def save_aggregate_reports_to_splunk(
+        self, aggregate_reports: AggregateReport | list[AggregateReport]
+    ):
         """Save aggregate DMARC reports to Splunk
 
         Args:
             aggregate_reports: Aggregate reports to save in Splunk
         """
         logger.debug("Saving aggregate reports to Splunk")
-        if isinstance(aggregate_reports, dict):
+        if isinstance(aggregate_reports, AggregateReport):
             aggregate_reports = [aggregate_reports]
 
         if not aggregate_reports:
@@ -86,7 +89,8 @@ class HECClient:
 
         data = self._common_data.copy()
         json_str = ""
-        for report in aggregate_reports:
+        for _report in aggregate_reports:
+            report = _report.data
             for record in report["records"]:
                 new_report = dict()
                 for metadata in report["report_metadata"]:
@@ -124,21 +128,24 @@ class HECClient:
             raise SplunkError(response["text"])
         return
 
-    def save_forensic_reports_to_splunk(self, forensic_reports: dict | list[dict[str, Any]]):
+    def save_forensic_reports_to_splunk(
+        self, forensic_reports: ForensicReport | list[ForensicReport]
+    ):
         """Save forensic DMARC reports to Splunk
 
         Args:
             forensic_reports: Forensic reports to save in Splunk
         """
         logger.debug("Saving forensic reports to Splunk")
-        if isinstance(forensic_reports, dict):
+        if isinstance(forensic_reports, ForensicReport):
             forensic_reports = [forensic_reports]
 
         if not forensic_reports:
             return
 
         json_str = ""
-        for report in forensic_reports:
+        for _report in forensic_reports:
+            report = _report.data
             data = self._common_data.copy()
             data["sourcetype"] = "dmarc:forensic"
             timestamp = human_timestamp_to_timestamp(report["arrival_date_utc"])

@@ -1,6 +1,5 @@
+# Future
 from __future__ import annotations
-
-# Standard Library
 
 # Installed
 from azure.core.exceptions import HttpResponseError
@@ -8,6 +7,7 @@ from azure.identity import ClientSecretCredential
 from azure.monitor.ingestion import LogsIngestionClient
 
 # Package
+from parsedmarc import SortedReportContainer
 from parsedmarc.log import logger
 
 
@@ -73,7 +73,7 @@ class LogAnalyticsClient:
         return
 
     def publish_results(
-        self, results: dict[str, list[dict]], save_aggregate: bool, save_forensic: bool
+        self, results: SortedReportContainer, save_aggregate: bool, save_forensic: bool
     ) -> None:
         """Publish DMARC reports to Log Analytics via Data Collection Rules (DCR).
 
@@ -82,13 +82,15 @@ class LogAnalyticsClient:
             save_aggregate: Whether Aggregate reports can be saved into Log Analytics
             save_forensic: Whether Forensic reports can be saved into Log Analytics
         """
-        if results["aggregate_reports"] and self.dcr_aggregate_stream and save_aggregate:
+        if results.aggregate_reports and self.dcr_aggregate_stream and save_aggregate:
             logger.info("Publishing aggregate reports.")
-            self._publish_json(results["aggregate_reports"], self.dcr_aggregate_stream)
+            self._publish_json(
+                [r.data for r in results.aggregate_reports], self.dcr_aggregate_stream
+            )
             logger.info("Successfully pushed aggregate reports.")
 
-        if results["forensic_reports"] and self.dcr_forensic_stream and save_forensic:
+        if results.forensic_reports and self.dcr_forensic_stream and save_forensic:
             logger.info("Publishing forensic reports.")
-            self._publish_json(results["forensic_reports"], self.dcr_forensic_stream)
+            self._publish_json([r.data for r in results.forensic_reports], self.dcr_forensic_stream)
             logger.info("Successfully pushed forensic reports.")
         return

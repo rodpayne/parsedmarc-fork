@@ -1,11 +1,11 @@
 """A Python package for parsing DMARC reports"""
 
+# Future
 from __future__ import annotations
 
 # Standard Library
 from base64 import b64decode
 import binascii
-from collections import OrderedDict
 from csv import DictWriter
 from datetime import datetime
 import email
@@ -58,6 +58,52 @@ MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
 IP_ADDRESS_CACHE = ExpiringDict(max_len=10000, max_age_seconds=1800)
 
 
+class Report:
+    """Base class for all reports"""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.data = data
+        return
+
+
+class AggregateReport(Report):
+    """A DMARC Aggregate Report"""
+
+
+class ForensicReport(Report):
+    """A DMARC Forensic Report"""
+
+
+class SortedReportContainer:
+    def __init__(
+        self,
+        existing_aggregate_reports: list[AggregateReport] | None = None,
+        existing_forensic_reports: list[ForensicReport] | None = None,
+    ) -> None:
+        self.aggregate_reports: list[AggregateReport] = existing_aggregate_reports or []
+        self.forensic_reports: list[ForensicReport] = existing_forensic_reports or []
+        return
+
+    def add_report(self, report: Report) -> str:
+        """Add a report to this container returning the added type.
+
+        Args:
+            report: the report to add
+
+        Returns:
+            the type of report added
+        """
+        if isinstance(report, AggregateReport):
+            self.aggregate_reports.append(report)
+            return "aggregate"
+
+        if isinstance(report, ForensicReport):
+            self.forensic_reports.append(report)
+            return "forensic"
+
+        raise ValueError(f"Unsupported report type: {type(report)}")
+
+
 class ParserError(RuntimeError):
     """Raised whenever the parser fails for some reason"""
 
@@ -75,13 +121,13 @@ class InvalidForensicReport(InvalidDMARCReport):
 
 
 def _parse_report_record(
-    record: OrderedDict,
+    record: dict,
     ip_db_path: str | None = None,
     offline: bool = False,
     nameservers: list[str] | None = None,
     dns_timeout: float = 2.0,
     parallel: bool = False,
-) -> OrderedDict:
+) -> dict:
     """Convert a record from a DMARC aggregate report into a more consistent format
 
     Args:
@@ -96,7 +142,7 @@ def _parse_report_record(
         The converted record
     """
     record = record.copy()
-    new_record: OrderedDict[str, Any] = OrderedDict()
+    new_record: dict[str, Any] = {}
     new_record_source = get_ip_address_info(
         record["row"]["source_ip"],
         cache=IP_ADDRESS_CACHE,
@@ -109,14 +155,12 @@ def _parse_report_record(
     new_record["source"] = new_record_source
     new_record["count"] = int(record["row"]["count"])
     policy_evaluated = record["row"]["policy_evaluated"].copy()
-    new_policy_evaluated = OrderedDict(
-        [
-            ("disposition", "none"),
-            ("dkim", "fail"),
-            ("spf", "fail"),
-            ("policy_override_reasons", []),
-        ]
-    )
+    new_policy_evaluated = {
+        "disposition": "none",
+        "dkim": "fail",
+        "spf": "fail",
+        "policy_override_reasons": [],
+    }
     if "disposition" in policy_evaluated:
         new_policy_evaluated["disposition"] = policy_evaluated["disposition"]
         if cast(str, new_policy_evaluated["disposition"]).strip().lower() == "pass":
@@ -131,7 +175,7 @@ def _parse_report_record(
         policy_evaluated["dkim"] is not None and policy_evaluated["dkim"].lower() == "pass"
     )
     dmarc_aligned = spf_aligned or dkim_aligned
-    new_record["alignment"] = dict()
+    new_record["alignment"] = {}
     new_record["alignment"]["spf"] = spf_aligned
     new_record["alignment"]["dkim"] = dkim_aligned
     new_record["alignment"]["dmarc"] = dmarc_aligned
@@ -149,7 +193,7 @@ def _parse_report_record(
         new_record["identifiers"] = record["identities"].copy()
     else:
         new_record["identifiers"] = record["identifiers"].copy()
-    new_record["auth_results"] = OrderedDict([("dkim", []), ("spf", [])])
+    new_record["auth_results"] = {"dkim": [], "spf": []}
     if type(new_record["identifiers"]["header_from"]) is str:
         lowered_from = new_record["identifiers"]["header_from"].lower()
     else:
@@ -168,7 +212,7 @@ def _parse_report_record(
         auth_results["dkim"] = [auth_results["dkim"]]
     for result in auth_results["dkim"]:
         if "domain" in result and result["domain"] is not None:
-            new_result = OrderedDict([("domain", result["domain"])])
+            new_result = {"domain": result["domain"]}
             if "selector" in result and result["selector"] is not None:
                 new_result["selector"] = result["selector"]
             else:
@@ -183,7 +227,7 @@ def _parse_report_record(
         auth_results["spf"] = [auth_results["spf"]]
     for result in auth_results["spf"]:
         if "domain" in result and result["domain"] is not None:
-            new_result = OrderedDict([("domain", result["domain"])])
+            new_result = {"domain": result["domain"]}
             if "scope" in result and result["scope"] is not None:
                 new_result["scope"] = result["scope"]
             else:
@@ -229,8 +273,8 @@ def parse_aggregate_report_xml(
     timeout: float = 2.0,
     parallel: bool = False,
     keep_alive: Callable | None = None,
-) -> OrderedDict[str, Any]:
-    """Parses a DMARC XML report string and returns a consistent OrderedDict
+) -> AggregateReport:
+    """Parses a DMARC XML report string and returns an AggregateReport
 
     Args:
         xml: A string of DMARC aggregate report XML
@@ -272,8 +316,8 @@ def parse_aggregate_report_xml(
         schema = "draft"
         if "version" in report:
             schema = report["version"]
-        new_report: OrderedDict[str, Any] = OrderedDict([("xml_schema", schema)])
-        new_report_metadata: OrderedDict[str, Any] = OrderedDict()
+        new_report: dict[str, Any] = {"xml_schema": schema}
+        new_report_metadata: dict[str, Any] = {}
         if report_metadata["org_name"] is None:
             if report_metadata["email"] is not None:
                 report_metadata["org_name"] = report_metadata["email"].split("@")[-1]
@@ -314,7 +358,7 @@ def parse_aggregate_report_xml(
         new_report["report_metadata"] = new_report_metadata
         records = []
         policy_published = report["policy_published"]
-        new_policy_published = OrderedDict()
+        new_policy_published = {}
         new_policy_published["domain"] = policy_published["domain"]
         adkim = "r"
         if "adkim" in policy_published:
@@ -374,7 +418,7 @@ def parse_aggregate_report_xml(
 
         new_report["records"] = records
 
-        return new_report
+        return AggregateReport(new_report)
 
     except expat.ExpatError as error:
         raise InvalidAggregateReport(f"Invalid XML: {error!r}")
@@ -445,7 +489,7 @@ def parse_aggregate_report_file(
     dns_timeout: float = 2.0,
     parallel: bool = False,
     keep_alive: Callable | None = None,
-) -> OrderedDict[str, Any]:
+) -> AggregateReport:
     """Parse a file at the given path, a file-like object. or bytes as an aggregate DMARC report
 
     Args:
@@ -475,7 +519,7 @@ def parse_aggregate_report_file(
 
 
 def parsed_aggregate_reports_to_csv_rows(
-    reports: OrderedDict | list[OrderedDict],
+    reports: AggregateReport | list[AggregateReport],
 ) -> list[dict[str, str | int | bool]]:
     """Convert one or more parsed aggregate reports to list of dicts in flat CSV format
 
@@ -489,12 +533,13 @@ def parsed_aggregate_reports_to_csv_rows(
     def to_str(obj) -> str:
         return str(obj).lower()
 
-    if not isinstance(reports, list):
+    if isinstance(reports, AggregateReport):
         reports = [reports]
 
     rows = []
 
-    for report in reports:
+    for _report in reports:
+        report = _report.data
         xml_schema = report["xml_schema"]
         org_name = report["report_metadata"]["org_name"]
         org_email = report["report_metadata"]["org_email"]
@@ -589,7 +634,7 @@ def parsed_aggregate_reports_to_csv_rows(
     return rows
 
 
-def parsed_aggregate_reports_to_csv(reports: OrderedDict | list[OrderedDict]) -> str:
+def parsed_aggregate_reports_to_csv(reports: AggregateReport | list[AggregateReport]) -> str:
     """Convert one or more parsed aggregate reports to flat CSV format, including headers
 
     Args:
@@ -660,8 +705,8 @@ def parse_forensic_report(
     dns_timeout: float = 2.0,
     strip_attachment_payloads: bool = False,
     parallel: bool = False,
-) -> OrderedDict:
-    """Converts a DMARC forensic report and sample to a ``OrderedDict``
+) -> ForensicReport:
+    """Converts a DMARC forensic report and sample to a ForensicReport
 
     Args:
         feedback_report: A message's feedback report as a string
@@ -680,7 +725,7 @@ def parse_forensic_report(
     delivery_results = ["delivered", "spam", "policy", "reject", "other"]
 
     try:
-        parsed_report = OrderedDict()
+        parsed_report: dict[str, Any] = {}
         report_values = feedback_report_regex.findall(feedback_report)
         for report_value in report_values:
             key = report_value[0].lower().replace("-", "_")
@@ -766,7 +811,7 @@ def parse_forensic_report(
         parsed_report["sample"] = sample
         parsed_report["parsed_sample"] = parsed_sample
 
-        return parsed_report
+        return ForensicReport(parsed_report)
 
     except KeyError as error:
         raise InvalidForensicReport(f"Missing value: {error!r}")
@@ -776,7 +821,7 @@ def parse_forensic_report(
 
 
 def parsed_forensic_reports_to_csv_rows(
-    reports: OrderedDict | list[OrderedDict],
+    reports: ForensicReport | list[ForensicReport],
 ) -> list[dict[str, Any]]:
     """Convert one or more parsed forensic reports to a list of dicts in flat CSV format
 
@@ -786,12 +831,13 @@ def parsed_forensic_reports_to_csv_rows(
     Returns:
         Parsed forensic report data as a list of dicts in flat CSV format
     """
-    if type(reports) is OrderedDict:
+    if isinstance(reports, ForensicReport):
         reports = [reports]
 
     rows = []
 
-    for report in reports:
+    for _report in reports:
+        report = _report.data
         row = report.copy()
         row["source_ip_address"] = report["source"]["ip_address"]
         row["source_reverse_dns"] = report["source"]["reverse_dns"]
@@ -809,7 +855,7 @@ def parsed_forensic_reports_to_csv_rows(
     return rows
 
 
-def parsed_forensic_reports_to_csv(reports: OrderedDict | list[OrderedDict]) -> str:
+def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport]) -> str:
     """Convert one or more parsed forensic reports to flat CSV format, including headers
 
     Args:
@@ -857,6 +903,23 @@ def parsed_forensic_reports_to_csv(reports: OrderedDict | list[OrderedDict]) -> 
     return csv_file.getvalue()
 
 
+class ReportParser:
+    """DMARC Report Parser"""
+
+    def __init__(
+        self,
+        offline: bool = False,
+        ip_db_path: str | None = None,
+        nameservers: list[str] | None = None,
+        dns_timeout: float = 2.0,
+    ) -> None:
+        self.offline = offline
+        self.ip_db_path = ip_db_path
+        self.nameservers = nameservers
+        self.dns_timeout = dns_timeout
+        return
+
+
 def parse_report_email(
     input_: bytes | str,
     offline: bool = False,
@@ -866,7 +929,7 @@ def parse_report_email(
     strip_attachment_payloads: bool = False,
     parallel: bool = False,
     keep_alive: Callable | None = None,
-) -> OrderedDict[str, str | OrderedDict]:
+) -> Report:
     """Parse a DMARC report from an email
 
     Args:
@@ -880,7 +943,7 @@ def parse_report_email(
         keep_alive: keep alive function
 
     Returns:
-        Dictionary of `{"report_type": "aggregate" or "forensic", "report": report}`
+        report container
     """
     try:
         if isinstance(input_, bytes) and is_outlook_msg(input_):
@@ -956,7 +1019,7 @@ def parse_report_email(
                         parallel=parallel,
                         keep_alive=keep_alive,
                     )
-                    return OrderedDict([("report_type", "aggregate"), ("report", aggregate_report)])
+                    return aggregate_report
 
             except (TypeError, ValueError, binascii.Error):
                 pass
@@ -989,7 +1052,7 @@ def parse_report_email(
         except Exception as e:
             raise InvalidForensicReport(repr(e))
 
-        return OrderedDict([("report_type", "forensic"), ("report", forensic_report)])
+        return forensic_report
 
     error = f"Message with subject {subject!r} is not a valid DMARC report"
     raise InvalidDMARCReport(error)
@@ -1004,7 +1067,7 @@ def parse_report_file(
     offline: bool = False,
     parallel: bool = False,
     keep_alive: Callable | None = None,
-) -> OrderedDict:
+) -> Report:
     """Parse a DMARC aggregate or forensic file at the given path, a file-like object. or bytes
 
     Args:
@@ -1032,7 +1095,8 @@ def parse_report_file(
     content = file_object.read()
     file_object.close()
 
-    results: OrderedDict[str, str | OrderedDict]
+    report: Report
+
     try:
         report = parse_aggregate_report_file(
             content,
@@ -1043,11 +1107,10 @@ def parse_report_file(
             parallel=parallel,
             keep_alive=keep_alive,
         )
-        results = OrderedDict([("report_type", "aggregate"), ("report", report)])
 
     except InvalidAggregateReport:
         try:
-            results = parse_report_email(
+            report = parse_report_email(
                 content,
                 ip_db_path=ip_db_path,
                 offline=offline,
@@ -1059,7 +1122,7 @@ def parse_report_file(
             )
         except InvalidDMARCReport:
             raise InvalidDMARCReport("Not a valid aggregate or forensic " "report")
-    return results
+    return report
 
 
 def get_dmarc_reports_from_mbox(
@@ -1070,7 +1133,7 @@ def get_dmarc_reports_from_mbox(
     ip_db_path: str | None = None,
     offline: bool = False,
     parallel: bool = False,
-) -> OrderedDict[str, list[OrderedDict]]:
+) -> SortedReportContainer:
     """Parses a mailbox in mbox format containing e-mails with attached DMARC reports
 
     Args:
@@ -1083,10 +1146,9 @@ def get_dmarc_reports_from_mbox(
         parallel: Parallel processing
 
     Returns:
-        Dictionary of Lists of ``aggregate_reports`` and ``forensic_reports``
+        container of reports
     """
-    aggregate_reports: list[OrderedDict] = []
-    forensic_reports: list[OrderedDict] = []
+    reports = SortedReportContainer()
     try:
         mbox = mailbox.mbox(input_)
         message_keys = mbox.keys()
@@ -1107,20 +1169,12 @@ def get_dmarc_reports_from_mbox(
                     strip_attachment_payloads=sa,
                     parallel=parallel,
                 )
-                if parsed_email["report_type"] == "aggregate":
-                    aggregate_reports.append(cast(OrderedDict[Any, Any], parsed_email["report"]))
-                elif parsed_email["report_type"] == "forensic":
-                    forensic_reports.append(cast(OrderedDict[Any, Any], parsed_email["report"]))
+                reports.add_report(parsed_email)
             except InvalidDMARCReport as error:
                 logger.warning(error.__str__())
     except mailbox.NoSuchMailboxError:
         raise InvalidDMARCReport(f"Mailbox {input_} does not exist")
-    return OrderedDict(
-        [
-            ("aggregate_reports", aggregate_reports),
-            ("forensic_reports", forensic_reports),
-        ]
-    )
+    return reports
 
 
 def get_dmarc_reports_from_mailbox(
@@ -1134,10 +1188,10 @@ def get_dmarc_reports_from_mailbox(
     nameservers: list[str] | None = None,
     dns_timeout: float = 6.0,
     strip_attachment_payloads: bool = False,
-    results: OrderedDict[str, list[OrderedDict]] | None = None,
+    results: SortedReportContainer | None = None,
     batch_size: int = 10,
     create_folders: bool = True,
-) -> OrderedDict[str, list[OrderedDict]]:
+) -> SortedReportContainer:
     """Fetches and parses DMARC reports from a mailbox
 
     Args:
@@ -1156,7 +1210,7 @@ def get_dmarc_reports_from_mailbox(
         create_folders: Whether to create the destination folders (not used in watch)
 
     Returns:
-        OrderedDict: Lists of ``aggregate_reports`` and ``forensic_reports``
+        collected reported
     """
     if delete and test:
         raise ValueError("delete and test options are mutually exclusive")
@@ -1164,17 +1218,14 @@ def get_dmarc_reports_from_mailbox(
     if connection is None:
         raise ValueError("Must supply a connection")
 
-    aggregate_reports = []
-    forensic_reports = []
     aggregate_report_msg_uids = []
     forensic_report_msg_uids = []
     aggregate_reports_folder = f"{archive_folder}/Aggregate"
     forensic_reports_folder = f"{archive_folder}/Forensic"
     invalid_reports_folder = f"{archive_folder}/Invalid"
 
-    if results:
-        aggregate_reports = results["aggregate_reports"].copy()
-        forensic_reports = results["forensic_reports"].copy()
+    if not results:
+        results = SortedReportContainer()
 
     if not test and create_folders:
         connection.create_folder(archive_folder)
@@ -1208,12 +1259,12 @@ def get_dmarc_reports_from_mailbox(
                 strip_attachment_payloads=sa,
                 keep_alive=connection.keepalive,
             )
-            if parsed_email["report_type"] == "aggregate":
-                aggregate_reports.append(cast(OrderedDict[Any, Any], parsed_email["report"]))
+            parsed_report_type = results.add_report(parsed_email)
+            if parsed_report_type == "aggregate":
                 aggregate_report_msg_uids.append(msg_uid)
-            elif parsed_email["report_type"] == "forensic":
-                forensic_reports.append(cast(OrderedDict[Any, Any], parsed_email["report"]))
+            elif parsed_report_type == "forensic":
                 forensic_report_msg_uids.append(msg_uid)
+
         except InvalidDMARCReport as error:
             logger.warning(error.__str__())
             if not test:
@@ -1266,13 +1317,6 @@ def get_dmarc_reports_from_mailbox(
                         connection.move_message(msg_uid, forensic_reports_folder)
                     except Exception as e:
                         logger.error(f"Mailbox error: Error moving message UID {msg_uid}: {e!r}")
-
-    results = OrderedDict(
-        [
-            ("aggregate_reports", aggregate_reports),
-            ("forensic_reports", forensic_reports),
-        ]
-    )
 
     total_messages = len(connection.fetch_messages(reports_folder))
 
@@ -1349,9 +1393,9 @@ def watch_inbox(
     mailbox_connection.watch(check_callback=check_callback, check_timeout=check_timeout)
 
 
-def append_json(filename: str, reports: list[OrderedDict]) -> None:
+def append_json(filename: str, reports: list[AggregateReport] | list[ForensicReport]) -> None:
     with open(filename, "a+", newline="\n", encoding="utf-8") as output:
-        output_json = json.dumps(reports, ensure_ascii=False, indent=2)
+        output_json = json.dumps([report.data for report in reports], ensure_ascii=False, indent=2)
         if output.seek(0, os.SEEK_END) != 0:
             if len(reports) == 0:
                 # not appending anything, don't do any dance to append it
@@ -1387,7 +1431,7 @@ def append_csv(filename: str, csv: str) -> None:
 
 
 def save_output(
-    results: OrderedDict[str, list[OrderedDict]],
+    results: SortedReportContainer,
     output_directory: str = "output",
     aggregate_json_filename: str = "aggregate.json",
     forensic_json_filename: str = "forensic.json",
@@ -1405,35 +1449,36 @@ def save_output(
         forensic_csv_filename: Filename for the forensic CSV file
     """
 
-    aggregate_reports = results["aggregate_reports"]
-    forensic_reports = results["forensic_reports"]
-
     if os.path.exists(output_directory):
         if not os.path.isdir(output_directory):
             raise ValueError(f"{output_directory} is not a directory")
     else:
         os.makedirs(output_directory)
 
-    append_json(os.path.join(output_directory, aggregate_json_filename), aggregate_reports)
+    # Save aggregate reports
+    append_json(os.path.join(output_directory, aggregate_json_filename), results.aggregate_reports)
 
     append_csv(
         os.path.join(output_directory, aggregate_csv_filename),
-        parsed_aggregate_reports_to_csv(aggregate_reports),
+        parsed_aggregate_reports_to_csv(results.aggregate_reports),
     )
 
-    append_json(os.path.join(output_directory, forensic_json_filename), forensic_reports)
+    # Save forensic reports
+    append_json(os.path.join(output_directory, forensic_json_filename), results.forensic_reports)
 
     append_csv(
         os.path.join(output_directory, forensic_csv_filename),
-        parsed_forensic_reports_to_csv(forensic_reports),
+        parsed_forensic_reports_to_csv(results.forensic_reports),
     )
 
+    # save sample emails (from forensic reports)
     samples_directory = os.path.join(output_directory, "samples")
     if not os.path.exists(samples_directory):
         os.makedirs(samples_directory)
 
     sample_filenames = []
-    for forensic_report in forensic_reports:
+    for _forensic_report in results.forensic_reports:
+        forensic_report = _forensic_report.data
         sample = forensic_report["sample"]
         message_count = 0
         parsed_sample = forensic_report["parsed_sample"]
@@ -1453,7 +1498,7 @@ def save_output(
     return
 
 
-def get_report_zip(results: OrderedDict[str, list[OrderedDict]]) -> bytes:
+def get_report_zip(results: SortedReportContainer) -> bytes:
     """Creates a zip file of parsed report output
 
     Args:
@@ -1498,7 +1543,7 @@ def get_report_zip(results: OrderedDict[str, list[OrderedDict]]) -> bytes:
 
 
 def email_results(
-    results: OrderedDict[str, list[OrderedDict]],
+    results: SortedReportContainer,
     host: str,
     mail_from: str,
     mail_to: list[str],

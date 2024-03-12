@@ -1,3 +1,4 @@
+# Future
 from __future__ import annotations
 
 # Standard Library
@@ -8,6 +9,7 @@ from typing import Any
 import boto3
 
 # Package
+from parsedmarc import AggregateReport, ForensicReport
 from parsedmarc.log import logger
 from parsedmarc.utils import human_timestamp_to_datetime
 
@@ -54,12 +56,12 @@ class S3Client:
         self.bucket = self.s3.Bucket(self.bucket_name)
         return
 
-    def save_aggregate_report_to_s3(self, report: dict[str, Any]) -> None:
-        self.save_report_to_s3(report, "aggregate")
+    def save_aggregate_report_to_s3(self, report: AggregateReport) -> None:
+        self.save_report_to_s3(report.data, "aggregate")
         return
 
-    def save_forensic_report_to_s3(self, report: dict[str, Any]) -> None:
-        self.save_report_to_s3(report, "forensic")
+    def save_forensic_report_to_s3(self, report: ForensicReport) -> None:
+        self.save_report_to_s3(report.data, "forensic")
         return
 
     def save_report_to_s3(self, report: dict[str, Any], report_type: str):
