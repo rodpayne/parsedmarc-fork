@@ -4,80 +4,40 @@
 from __future__ import annotations
 
 # Standard Library
-from base64 import b64decode
-import binascii
 from csv import DictWriter
 from datetime import datetime
-import email
-import email.utils
 from io import BytesIO, StringIO
 import json
 import mailbox
 import os
-import re
 import shutil
 import tempfile
-from typing import Any, BinaryIO, Callable, cast
-import xml.parsers.expat as expat
+from typing import Any, BinaryIO, Callable
 import zipfile
-import zlib
 
 # Installed
-from expiringdict import ExpiringDict
-from lxml import etree
-import mailparser
 from mailsuite.smtp import send_email
-import xmltodict
 
 # Package
 from parsedmarc.log import logger
 from parsedmarc.mail import MailboxConnection
+from parsedmarc.parser import (  # noqa: F401
+    InvalidAggregateReport,
+    InvalidDMARCReport,
+    InvalidForensicReport,
+    ParserError,
+    ReportParser,
+)
 from parsedmarc.reports import (
     AggregateReport,
     ForensicReport,
     Report,
     SortedReportContainer,
 )
-from parsedmarc.utils import (
-    convert_outlook_msg,
-    get_base_domain,
-    get_ip_address_info,
-    human_timestamp_to_datetime,
-    is_outlook_msg,
-    parse_email,
-    timestamp_to_human,
-)
 
 __version__ = "9.0.0.dev1"
 
 logger.debug(f"parsedmarc v{__version__}")
-
-feedback_report_regex = re.compile(r"^([\w\-]+): (.+)$", re.MULTILINE)
-xml_header_regex = re.compile(r"^<\?xml .*?>", re.MULTILINE)
-xml_schema_regex = re.compile(r"</??xs:schema.*>", re.MULTILINE)
-text_report_regex = re.compile(r"\s*([a-zA-Z\s]+):\s(.+)", re.MULTILINE)
-
-MAGIC_ZIP = b"\x50\x4B\x03\x04"
-MAGIC_GZIP = b"\x1F\x8B"
-MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
-
-IP_ADDRESS_CACHE = ExpiringDict(max_len=10000, max_age_seconds=1800)
-
-
-class ParserError(RuntimeError):
-    """Raised whenever the parser fails for some reason"""
-
-
-class InvalidDMARCReport(ParserError):
-    """Raised when an invalid DMARC report is encountered"""
-
-
-class InvalidAggregateReport(InvalidDMARCReport):
-    """Raised when an invalid DMARC aggregate report is encountered"""
-
-
-class InvalidForensicReport(InvalidDMARCReport):
-    """Raised when an invalid DMARC forensic report is encountered"""
 
 
 def _parse_report_record(
@@ -91,136 +51,17 @@ def _parse_report_record(
 
     Args:
         record: The record to convert
-        ip_db_path: Path to a MMDB file from MaxMind or DBIP
-        offline: Do not query online for geolocation or DNS
-        nameservers: A list of one or more nameservers to use
-        (Cloudflare's public DNS resolvers by default)
-        dns_timeout: Sets the DNS timeout in seconds
 
     Returns:
         The converted record
     """
-    record = record.copy()
-    new_record: dict[str, Any] = {}
-    new_record_source = get_ip_address_info(
-        record["row"]["source_ip"],
-        cache=IP_ADDRESS_CACHE,
-        ip_db_path=ip_db_path,
+    parser = ReportParser(
         offline=offline,
+        ip_db_path=ip_db_path,
         nameservers=nameservers,
-        timeout=dns_timeout,
+        dns_timeout=dns_timeout,
     )
-    new_record["source"] = new_record_source
-    new_record["count"] = int(record["row"]["count"])
-    policy_evaluated = record["row"]["policy_evaluated"].copy()
-    new_policy_evaluated = {
-        "disposition": "none",
-        "dkim": "fail",
-        "spf": "fail",
-        "policy_override_reasons": [],
-    }
-    if "disposition" in policy_evaluated:
-        new_policy_evaluated["disposition"] = policy_evaluated["disposition"]
-        if cast(str, new_policy_evaluated["disposition"]).strip().lower() == "pass":
-            new_policy_evaluated["disposition"] = "none"
-    if "dkim" in policy_evaluated:
-        new_policy_evaluated["dkim"] = policy_evaluated["dkim"]
-    if "spf" in policy_evaluated:
-        new_policy_evaluated["spf"] = policy_evaluated["spf"]
-    reasons = []
-    spf_aligned = policy_evaluated["spf"] is not None and policy_evaluated["spf"].lower() == "pass"
-    dkim_aligned = (
-        policy_evaluated["dkim"] is not None and policy_evaluated["dkim"].lower() == "pass"
-    )
-    dmarc_aligned = spf_aligned or dkim_aligned
-    new_record["alignment"] = {}
-    new_record["alignment"]["spf"] = spf_aligned
-    new_record["alignment"]["dkim"] = dkim_aligned
-    new_record["alignment"]["dmarc"] = dmarc_aligned
-    if "reason" in policy_evaluated:
-        if type(policy_evaluated["reason"]) is list:
-            reasons = policy_evaluated["reason"]
-        else:
-            reasons = [policy_evaluated["reason"]]
-    for reason in reasons:
-        if "comment" not in reason:
-            reason["comment"] = None
-    new_policy_evaluated["policy_override_reasons"] = reasons
-    new_record["policy_evaluated"] = new_policy_evaluated
-    if "identities" in record:
-        new_record["identifiers"] = record["identities"].copy()
-    else:
-        new_record["identifiers"] = record["identifiers"].copy()
-    new_record["auth_results"] = {"dkim": [], "spf": []}
-    if type(new_record["identifiers"]["header_from"]) is str:
-        lowered_from = new_record["identifiers"]["header_from"].lower()
-    else:
-        lowered_from = ""
-    new_record["identifiers"]["header_from"] = lowered_from
-    if record["auth_results"] is not None:
-        auth_results = record["auth_results"].copy()
-        if "spf" not in auth_results:
-            auth_results["spf"] = []
-        if "dkim" not in auth_results:
-            auth_results["dkim"] = []
-    else:
-        auth_results = new_record["auth_results"].copy()
-
-    if not isinstance(auth_results["dkim"], list):
-        auth_results["dkim"] = [auth_results["dkim"]]
-    for result in auth_results["dkim"]:
-        if "domain" in result and result["domain"] is not None:
-            new_result = {"domain": result["domain"]}
-            if "selector" in result and result["selector"] is not None:
-                new_result["selector"] = result["selector"]
-            else:
-                new_result["selector"] = "none"
-            if "result" in result and result["result"] is not None:
-                new_result["result"] = result["result"]
-            else:
-                new_result["result"] = "none"
-            new_record["auth_results"]["dkim"].append(new_result)
-
-    if not isinstance(auth_results["spf"], list):
-        auth_results["spf"] = [auth_results["spf"]]
-    for result in auth_results["spf"]:
-        if "domain" in result and result["domain"] is not None:
-            new_result = {"domain": result["domain"]}
-            if "scope" in result and result["scope"] is not None:
-                new_result["scope"] = result["scope"]
-            else:
-                new_result["scope"] = "mfrom"
-            if "result" in result and result["result"] is not None:
-                new_result["result"] = result["result"]
-            else:
-                new_result["result"] = "none"
-            new_record["auth_results"]["spf"].append(new_result)
-
-    if "envelope_from" not in new_record["identifiers"]:
-        envelope_from = None
-        if len(auth_results["spf"]) > 0:
-            spf_result = auth_results["spf"][-1]
-            if "domain" in spf_result:
-                envelope_from = spf_result["domain"]
-        if envelope_from is not None:
-            envelope_from = str(envelope_from).lower()
-        new_record["identifiers"]["envelope_from"] = envelope_from
-
-    elif new_record["identifiers"]["envelope_from"] is None:
-        if len(auth_results["spf"]) > 0:
-            envelope_from = new_record["auth_results"]["spf"][-1]["domain"]
-            if envelope_from is not None:
-                envelope_from = str(envelope_from).lower()
-            new_record["identifiers"]["envelope_from"] = envelope_from
-
-    envelope_to = None
-    if "envelope_to" in new_record["identifiers"]:
-        envelope_to = new_record["identifiers"]["envelope_to"]
-        del new_record["identifiers"]["envelope_to"]
-
-    new_record["identifiers"]["envelope_to"] = envelope_to
-
-    return new_record
+    return parser._parse_aggregate_report_record(record)
 
 
 def parse_aggregate_report_xml(
@@ -244,195 +85,13 @@ def parse_aggregate_report_xml(
     Returns:
         The parsed aggregate DMARC report
     """
-    errors = []
-    # Parse XML and recover from errors
-    try:
-        xmltodict.parse(xml)["feedback"]
-    except Exception as e:
-        errors.append(f"Invalid XML: {e!r}")
-        try:
-            tree = etree.parse(
-                BytesIO(xml.encode("utf-8")),
-                etree.XMLParser(recover=True, resolve_entities=False),
-            )
-            s = etree.tostring(tree)
-            xml = "" if s is None else s.decode("utf-8")
-        except Exception:
-            xml = "<a/>"
-
-    try:
-        # Replace XML header (sometimes they are invalid)
-        xml = xml_header_regex.sub('<?xml version="1.0"?>', xml)
-
-        # Remove invalid schema tags
-        xml = xml_schema_regex.sub("", xml)
-
-        report = xmltodict.parse(xml)["feedback"]
-        report_metadata = report["report_metadata"]
-        schema = "draft"
-        if "version" in report:
-            schema = report["version"]
-        new_report: dict[str, Any] = {"xml_schema": schema}
-        new_report_metadata: dict[str, Any] = {}
-        if report_metadata["org_name"] is None:
-            if report_metadata["email"] is not None:
-                report_metadata["org_name"] = report_metadata["email"].split("@")[-1]
-        org_name = report_metadata["org_name"]
-        if org_name is not None and " " not in org_name:
-            new_org_name = get_base_domain(org_name)
-            if new_org_name is not None:
-                org_name = new_org_name
-        if not org_name:
-            logger.debug(f"Could not parse org_name from XML.\r\n{report}")
-            raise KeyError(
-                "Organization name is missing. This field is a requirement for saving the report"
-            )
-        new_report_metadata["org_name"] = org_name
-        new_report_metadata["org_email"] = report_metadata["email"]
-        extra = None
-        if "extra_contact_info" in report_metadata:
-            extra = report_metadata["extra_contact_info"]
-        new_report_metadata["org_extra_contact_info"] = extra
-        new_report_metadata["report_id"] = report_metadata["report_id"]
-        report_id = new_report_metadata["report_id"]
-        report_id = report_id.replace("<", "").replace(">", "").split("@")[0]
-        new_report_metadata["report_id"] = report_id
-        date_range = report["report_metadata"]["date_range"]
-        if int(date_range["end"]) - int(date_range["begin"]) > 2 * 86400:
-            _error = "Timespan > 24 hours - RFC 7489 section 7.2"
-            errors.append(_error)
-        date_range["begin"] = timestamp_to_human(date_range["begin"])
-        date_range["end"] = timestamp_to_human(date_range["end"])
-        new_report_metadata["begin_date"] = date_range["begin"]
-        new_report_metadata["end_date"] = date_range["end"]
-        if "error" in report["report_metadata"]:
-            if not isinstance(report["report_metadata"]["error"], list):
-                errors = [report["report_metadata"]["error"]]
-            else:
-                errors = report["report_metadata"]["error"]
-        new_report_metadata["errors"] = errors
-        new_report["report_metadata"] = new_report_metadata
-        records = []
-        policy_published = report["policy_published"]
-        new_policy_published = {}
-        new_policy_published["domain"] = policy_published["domain"]
-        adkim = "r"
-        if "adkim" in policy_published:
-            if policy_published["adkim"] is not None:
-                adkim = policy_published["adkim"]
-        new_policy_published["adkim"] = adkim
-        aspf = "r"
-        if "aspf" in policy_published:
-            if policy_published["aspf"] is not None:
-                aspf = policy_published["aspf"]
-        new_policy_published["aspf"] = aspf
-        new_policy_published["p"] = policy_published["p"]
-        sp = new_policy_published["p"]
-        if "sp" in policy_published:
-            if policy_published["sp"] is not None:
-                sp = report["policy_published"]["sp"]
-        new_policy_published["sp"] = sp
-        pct = "100"
-        if "pct" in policy_published:
-            if policy_published["pct"] is not None:
-                pct = report["policy_published"]["pct"]
-        new_policy_published["pct"] = pct
-        fo = "0"
-        if "fo" in policy_published:
-            if policy_published["fo"] is not None:
-                fo = report["policy_published"]["fo"]
-        new_policy_published["fo"] = fo
-        new_report["policy_published"] = new_policy_published
-
-        if type(report["record"]) is list:
-            record_count = len(report["record"])
-            for i in range(record_count):
-                if keep_alive is not None and i > 0 and i % 20 == 0:
-                    logger.debug("Sending keepalive cmd")
-                    keep_alive()
-                    logger.debug(f"Processed {i}/{record_count}")
-                report_record = _parse_report_record(
-                    report["record"][i],
-                    ip_db_path=ip_db_path,
-                    offline=offline,
-                    nameservers=nameservers,
-                    dns_timeout=timeout,
-                )
-                records.append(report_record)
-
-        else:
-            report_record = _parse_report_record(
-                report["record"],
-                ip_db_path=ip_db_path,
-                offline=offline,
-                nameservers=nameservers,
-                dns_timeout=timeout,
-            )
-            records.append(report_record)
-
-        new_report["records"] = records
-
-        return AggregateReport(new_report)
-
-    except expat.ExpatError as error:
-        raise InvalidAggregateReport(f"Invalid XML: {error!r}")
-
-    except KeyError as error:
-        raise InvalidAggregateReport(f"Missing field: {error!r}")
-    except AttributeError:
-        raise InvalidAggregateReport("Report missing required section")
-
-    except Exception as error:
-        raise InvalidAggregateReport(f"Unexpected error: {error!r}")
-
-
-def extract_xml(source: str | bytes | BinaryIO) -> str:
-    """Extracts xml from a zip or gzip file at the given path, file-like object, or bytes.
-
-    Args:
-        source: A path to a file, a file like object, or bytes
-
-    Returns:
-        The extracted XML
-    """
-    file_object: BinaryIO
-    try:
-        if isinstance(source, str):
-            file_object = open(source, "rb")
-        elif isinstance(source, bytes):
-            file_object = BytesIO(source)
-        else:
-            file_object = source
-
-        header = file_object.read(6)
-        file_object.seek(0)
-
-        if header.startswith(MAGIC_ZIP):
-            _zip = zipfile.ZipFile(file_object)
-            xml = _zip.open(_zip.namelist()[0]).read().decode(errors="ignore")
-
-        elif header.startswith(MAGIC_GZIP):
-            xml = zlib.decompress(file_object.read(), zlib.MAX_WBITS | 16).decode(errors="ignore")
-
-        elif header.startswith(MAGIC_XML):
-            xml = file_object.read().decode(errors="ignore")
-
-        else:
-            file_object.close()
-            raise InvalidAggregateReport("Not a valid zip, gzip, or xml file")
-
-        file_object.close()
-
-    except FileNotFoundError:
-        raise InvalidAggregateReport("File was not found")
-    except UnicodeDecodeError:
-        file_object.close()
-        raise InvalidAggregateReport("File objects must be opened in binary " "(rb) mode")
-    except Exception as error:
-        file_object.close()
-        raise InvalidAggregateReport(f"Invalid archive file: {error!r}")
-
-    return xml
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=timeout,
+    )
+    return parser.parse_aggregate_report_xml(xml, keep_alive)
 
 
 def parse_aggregate_report_file(
@@ -457,14 +116,13 @@ def parse_aggregate_report_file(
     Returns:
         The parsed DMARC aggregate report
     """
-    return parse_aggregate_report_xml(
-        extract_xml(source),
-        ip_db_path=ip_db_path,
+    parser = ReportParser(
         offline=offline,
+        ip_db_path=ip_db_path,
         nameservers=nameservers,
-        timeout=dns_timeout,
-        keep_alive=keep_alive,
+        dns_timeout=dns_timeout,
     )
+    return parser.parse_aggregate_report_file(source, keep_alive)
 
 
 def parsed_aggregate_reports_to_csv_rows(
@@ -542,101 +200,15 @@ def parse_forensic_report(
     Returns:
         A parsed report and sample
     """
-    delivery_results = ["delivered", "spam", "policy", "reject", "other"]
-
-    try:
-        parsed_report: dict[str, Any] = {}
-        report_values = feedback_report_regex.findall(feedback_report)
-        for report_value in report_values:
-            key = report_value[0].lower().replace("-", "_")
-            parsed_report[key] = report_value[1]
-
-        if "arrival_date" not in parsed_report:
-            if msg_date is None:
-                raise InvalidForensicReport("Forensic sample is not a valid email")
-            parsed_report["arrival_date"] = msg_date.isoformat()
-
-        if "version" not in parsed_report:
-            parsed_report["version"] = None
-
-        if "user_agent" not in parsed_report:
-            parsed_report["user_agent"] = None
-
-        if "delivery_result" not in parsed_report:
-            parsed_report["delivery_result"] = None
-        else:
-            for delivery_result in delivery_results:
-                if delivery_result in parsed_report["delivery_result"].lower():
-                    parsed_report["delivery_result"] = delivery_result
-                    break
-        if parsed_report["delivery_result"] not in delivery_results:
-            parsed_report["delivery_result"] = "other"
-
-        parsed_report["arrival_date_utc"] = human_timestamp_to_datetime(
-            parsed_report["arrival_date"], to_utc=True
-        ).strftime("%Y-%m-%d %H:%M:%S")
-
-        ip_address = re.split(r"\s", parsed_report["source_ip"]).pop(0)
-        parsed_report_source = get_ip_address_info(
-            ip_address,
-            ip_db_path=ip_db_path,
-            offline=offline,
-            nameservers=nameservers,
-            timeout=dns_timeout,
-        )
-        parsed_report["source"] = parsed_report_source
-        del parsed_report["source_ip"]
-
-        if "identity_alignment" not in parsed_report:
-            parsed_report["authentication_mechanisms"] = []
-        elif parsed_report["identity_alignment"] == "none":
-            parsed_report["authentication_mechanisms"] = []
-            del parsed_report["identity_alignment"]
-        else:
-            auth_mechanisms = parsed_report["identity_alignment"]
-            auth_mechanisms = auth_mechanisms.split(",")
-            parsed_report["authentication_mechanisms"] = auth_mechanisms
-            del parsed_report["identity_alignment"]
-
-        if "auth_failure" not in parsed_report:
-            parsed_report["auth_failure"] = "dmarc"
-        auth_failure = parsed_report["auth_failure"].split(",")
-        parsed_report["auth_failure"] = auth_failure
-
-        optional_fields = [
-            "original_envelope_id",
-            "dkim_domain",
-            "original_mail_from",
-            "original_rcpt_to",
-        ]
-        for optional_field in optional_fields:
-            if optional_field not in parsed_report:
-                parsed_report[optional_field] = None
-
-        parsed_sample = parse_email(sample, strip_attachment_payloads=strip_attachment_payloads)
-
-        if "reported_domain" not in parsed_report:
-            parsed_report["reported_domain"] = parsed_sample["from"]["domain"]
-
-        sample_headers_only = False
-        number_of_attachments = len(parsed_sample["attachments"])
-        if number_of_attachments < 1 and parsed_sample["body"] is None:
-            sample_headers_only = True
-        if sample_headers_only and parsed_sample["has_defects"]:
-            del parsed_sample["defects"]
-            del parsed_sample["defects_categories"]
-            del parsed_sample["has_defects"]
-        parsed_report["sample_headers_only"] = sample_headers_only
-        parsed_report["sample"] = sample
-        parsed_report["parsed_sample"] = parsed_sample
-
-        return ForensicReport(parsed_report)
-
-    except KeyError as error:
-        raise InvalidForensicReport(f"Missing value: {error!r}")
-
-    except Exception as error:
-        raise InvalidForensicReport(f"Unexpected error: {error!r}")
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=dns_timeout,
+    )
+    return parser.parse_forensic_report(
+        feedback_report, sample, msg_date, strip_attachment_payloads
+    )
 
 
 def parsed_forensic_reports_to_csv_rows(
@@ -707,115 +279,13 @@ def parse_report_email(
     Returns:
         report container
     """
-    try:
-        if isinstance(source, bytes) and is_outlook_msg(source):
-            source = convert_outlook_msg(source)
-        if isinstance(source, bytes):
-            source = source.decode(encoding="utf8", errors="replace")
-        msg = mailparser.parse_from_string(source)
-        msg_headers = json.loads(msg.headers_json)
-        if "Date" in msg_headers:
-            date = human_timestamp_to_datetime(msg_headers["Date"])
-        else:
-            date = datetime.utcnow()
-        msg = email.message_from_string(source)
-
-    except Exception as e:
-        raise InvalidDMARCReport(e.__str__())
-    subject = None
-    feedback_report = None
-    sample = None
-    if "From" in msg_headers:
-        logger.info(f"Parsing mail from {msg_headers['From']}")
-    if "Subject" in msg_headers:
-        subject = msg_headers["Subject"]
-    for part in msg.walk():
-        content_type = part.get_content_type()
-        payload = part.get_payload()
-        if not isinstance(payload, list):
-            payload = [payload]
-        payload = payload[0].__str__()
-        if content_type == "message/feedback-report":
-            try:
-                if "Feedback-Type" in payload:
-                    feedback_report = payload
-                else:
-                    feedback_report = b64decode(payload).__str__()
-                feedback_report = feedback_report.lstrip("b'").rstrip("'")
-                feedback_report = feedback_report.replace("\\r", "")
-                feedback_report = feedback_report.replace("\\n", "\n")
-            except (ValueError, TypeError, binascii.Error):
-                feedback_report = payload
-
-        elif content_type == "text/rfc822-headers":
-            sample = payload
-        elif content_type == "message/rfc822":
-            sample = payload
-        elif content_type == "text/plain":
-            if "A message claiming to be from you has failed" in payload:
-                parts = payload.split("detected.")
-                field_matches = text_report_regex.findall(parts[0])
-                fields = dict()
-                for match in field_matches:
-                    field_name = match[0].lower().replace(" ", "-")
-                    fields[field_name] = match[1].strip()
-                feedback_report = f"Arrival-Date: {fields['received-date']}\nSource-IP: {fields['sender-ip-address']}"
-                sample = parts[1].lstrip()
-                sample = sample.replace("=\r\n", "")
-                logger.debug(sample)
-        else:
-            try:
-                payload = b64decode(payload)
-                if (
-                    payload.startswith(MAGIC_ZIP)
-                    or payload.startswith(MAGIC_GZIP)
-                    or payload.startswith(MAGIC_XML)
-                ):
-                    ns = nameservers
-                    aggregate_report = parse_aggregate_report_file(
-                        payload,
-                        ip_db_path=ip_db_path,
-                        offline=offline,
-                        nameservers=ns,
-                        dns_timeout=dns_timeout,
-                        keep_alive=keep_alive,
-                    )
-                    return aggregate_report
-
-            except (TypeError, ValueError, binascii.Error):
-                pass
-
-            except InvalidAggregateReport as e:
-                error = (
-                    f"Message with subject {subject!r} is not a valid aggregate DMARC report: {e!r}"
-                )
-                raise InvalidAggregateReport(error)
-
-            except Exception as e:
-                error = f"Unable to parse message with subject {subject!r}: {e!r}"
-                raise InvalidDMARCReport(error)
-
-    if feedback_report and sample:
-        try:
-            forensic_report = parse_forensic_report(
-                feedback_report,
-                sample,
-                date,
-                offline=offline,
-                nameservers=nameservers,
-                dns_timeout=dns_timeout,
-                strip_attachment_payloads=strip_attachment_payloads,
-            )
-        except InvalidForensicReport as e:
-            error = f"Message with subject {subject!r} is not a valid forensic DMARC report: {e!r}"
-            raise InvalidForensicReport(error)
-        except Exception as e:
-            raise InvalidForensicReport(repr(e))
-
-        return forensic_report
-
-    error = f"Message with subject {subject!r} is not a valid DMARC report"
-    raise InvalidDMARCReport(error)
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=dns_timeout,
+    )
+    return parser.parse_report_email(source, strip_attachment_payloads, keep_alive)
 
 
 def parse_report_file(
@@ -841,44 +311,13 @@ def parse_report_file(
     Returns:
         The parsed DMARC report
     """
-    file_object: BinaryIO
-    if isinstance(source, str):
-        logger.debug(f"Parsing {source}")
-        file_object = open(source, "rb")
-    elif isinstance(source, bytes):
-        file_object = BytesIO(source)
-    else:
-        file_object = source
-
-    content = file_object.read()
-    file_object.close()
-
-    report: Report
-
-    try:
-        report = parse_aggregate_report_file(
-            content,
-            ip_db_path=ip_db_path,
-            offline=offline,
-            nameservers=nameservers,
-            dns_timeout=dns_timeout,
-            keep_alive=keep_alive,
-        )
-
-    except InvalidAggregateReport:
-        try:
-            report = parse_report_email(
-                content,
-                ip_db_path=ip_db_path,
-                offline=offline,
-                nameservers=nameservers,
-                dns_timeout=dns_timeout,
-                strip_attachment_payloads=strip_attachment_payloads,
-                keep_alive=keep_alive,
-            )
-        except InvalidDMARCReport:
-            raise InvalidDMARCReport("Not a valid aggregate or forensic report")
-    return report
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=dns_timeout,
+    )
+    return parser.parse_report_file(source, strip_attachment_payloads, keep_alive)
 
 
 def get_dmarc_reports_from_mbox(
@@ -902,6 +341,12 @@ def get_dmarc_reports_from_mbox(
     Returns:
         container of reports
     """
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=dns_timeout,
+    )
     reports = SortedReportContainer()
     try:
         mbox = mailbox.mbox(source)
@@ -913,18 +358,13 @@ def get_dmarc_reports_from_mbox(
             logger.info(f"Processing message {i+1} of {total_messages}")
             msg_content = mbox.get_string(message_key)
             try:
-                sa = strip_attachment_payloads
-                parsed_email = parse_report_email(
+                parsed_email = parser.parse_report_email(
                     msg_content,
-                    ip_db_path=ip_db_path,
-                    offline=offline,
-                    nameservers=nameservers,
-                    dns_timeout=dns_timeout,
-                    strip_attachment_payloads=sa,
+                    strip_attachment_payloads,
                 )
                 reports.add_report(parsed_email)
             except InvalidDMARCReport as error:
-                logger.warning(error.__str__())
+                logger.warning(repr(error))
     except mailbox.NoSuchMailboxError:
         raise InvalidDMARCReport(f"Mailbox {source} does not exist")
     return reports
@@ -971,6 +411,12 @@ def get_dmarc_reports_from_mailbox(
     if connection is None:
         raise ValueError("Must supply a connection")
 
+    parser = ReportParser(
+        offline=offline,
+        ip_db_path=ip_db_path,
+        nameservers=nameservers,
+        dns_timeout=dns_timeout,
+    )
     aggregate_report_msg_uids = []
     forensic_report_msg_uids = []
     aggregate_reports_folder = f"{archive_folder}/Aggregate"
@@ -1002,14 +448,9 @@ def get_dmarc_reports_from_mailbox(
         logger.debug(f"Processing message {i+1} of {message_limit}: UID {msg_uid}")
         msg_content = connection.fetch_message(msg_uid)
         try:
-            sa = strip_attachment_payloads
-            parsed_email = parse_report_email(
+            parsed_email = parser.parse_report_email(
                 msg_content,
-                nameservers=nameservers,
-                dns_timeout=dns_timeout,
-                ip_db_path=ip_db_path,
-                offline=offline,
-                strip_attachment_payloads=sa,
+                strip_attachment_payloads,
                 keep_alive=connection.keepalive,
             )
             parsed_report_type = results.add_report(parsed_email)
@@ -1126,7 +567,6 @@ def watch_inbox(
     """
 
     def check_callback(connection):
-        sa = strip_attachment_payloads
         res = get_dmarc_reports_from_mailbox(
             connection=connection,
             reports_folder=reports_folder,
@@ -1137,13 +577,14 @@ def watch_inbox(
             offline=offline,
             nameservers=nameservers,
             dns_timeout=dns_timeout,
-            strip_attachment_payloads=sa,
+            strip_attachment_payloads=strip_attachment_payloads,
             batch_size=batch_size,
             create_folders=False,
         )
         callback(res)
 
     mailbox_connection.watch(check_callback=check_callback, check_timeout=check_timeout)
+    return
 
 
 def append_json(filename: str, reports: list[AggregateReport] | list[ForensicReport]) -> None:

@@ -9,6 +9,7 @@ import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
 import importlib.resources
+from io import BytesIO
 import json
 import logging
 import mailbox
@@ -17,7 +18,9 @@ import re
 import shutil
 import subprocess
 import tempfile
-from typing import Any
+from typing import Any, BinaryIO
+import zipfile
+import zlib
 
 # Installed
 from dateutil.parser import parse as parse_date
@@ -33,6 +36,10 @@ import publicsuffixlist
 # Package
 from parsedmarc.log import logger
 import parsedmarc.resources.dbip
+
+MAGIC_ZIP = b"\x50\x4B\x03\x04"
+MAGIC_GZIP = b"\x1F\x8B"
+MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
 
 parenthesis_regex = re.compile(r"\s*\(.*\)\s*")
 
@@ -550,3 +557,56 @@ def parse_email(data: bytes | str, strip_attachment_payloads: bool = False) -> d
         parsed_email["body"] = None
 
     return parsed_email
+
+
+def extract_xml(source: str | bytes | BinaryIO) -> str:
+    """Extracts xml from a zip or gzip file at the given path, file-like object, or bytes.
+
+    Args:
+        source: A path to a file, a file like object, or bytes
+
+    Returns:
+        The extracted XML
+    """
+    file_object: BinaryIO
+    try:
+        if isinstance(source, str):
+            file_object = open(source, "rb")
+        elif isinstance(source, bytes):
+            file_object = BytesIO(source)
+        else:
+            file_object = source
+
+        header = file_object.read(6)
+        file_object.seek(0)
+
+        if header.startswith(MAGIC_ZIP):
+            _zip = zipfile.ZipFile(file_object)
+            xml = _zip.open(_zip.namelist()[0]).read().decode(errors="ignore")
+
+        elif header.startswith(MAGIC_GZIP):
+            xml = zlib.decompress(file_object.read(), zlib.MAX_WBITS | 16).decode(errors="ignore")
+
+        elif header.startswith(MAGIC_XML):
+            xml = file_object.read().decode(errors="ignore")
+
+        else:
+            file_object.close()
+            # raise InvalidAggregateReport("Not a valid zip, gzip, or xml file")
+            raise ValueError("Not a valid zip, gzip, or xml file")
+
+        file_object.close()
+
+    except FileNotFoundError:
+        # raise InvalidAggregateReport("File was not found")
+        raise ValueError("File was not found")
+    except UnicodeDecodeError:
+        file_object.close()
+        # raise InvalidAggregateReport("File objects must be opened in binary (rb) mode")
+        raise ValueError("File objects must be opened in binary (rb) mode")
+    except Exception as error:
+        file_object.close()
+        # raise InvalidAggregateReport(f"Invalid archive file: {error!r}")
+        raise ValueError(f"Invalid archive file: {error!r}")
+
+    return xml
