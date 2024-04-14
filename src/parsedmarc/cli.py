@@ -104,15 +104,7 @@ def _main():
                 # Elasticsearch
                 if opts.elasticsearch_hosts:
                     try:
-                        shards = opts.elasticsearch_number_of_shards
-                        replicas = opts.elasticsearch_number_of_replicas
-                        elastic.save_aggregate_report_to_elasticsearch(
-                            aggregate_report,
-                            index_suffix=opts.elasticsearch_index_suffix,
-                            monthly_indexes=opts.elasticsearch_monthly_indexes,
-                            number_of_shards=shards,
-                            number_of_replicas=replicas,
-                        )
+                        es_client.save_aggregate_report_to_elasticsearch(aggregate_report)
                     except elastic.AlreadySaved as warning:
                         logger.warning(warning.__str__())
                     except elastic.ElasticsearchError as error_:
@@ -156,13 +148,7 @@ def _main():
                 # Elasticsearch
                 if opts.elasticsearch_hosts:
                     try:
-                        elastic.save_forensic_report_to_elasticsearch(
-                            forensic_report,
-                            index_suffix=opts.elasticsearch_index_suffix,
-                            monthly_indexes=opts.elasticsearch_monthly_indexes,
-                            number_of_shards=opts.elasticsearch_number_of_shards,
-                            number_of_replicas=opts.elasticsearch_number_of_replicas,
-                        )
+                        es_client.save_forensic_report_to_elasticsearch(forensic_report)
                     except elastic.AlreadySaved as warning:
                         logger.warning(warning.__str__())
                     except elastic.ElasticsearchError as error_:
@@ -817,25 +803,20 @@ def _main():
     if opts.save_aggregate or opts.save_forensic:
         try:
             if opts.elasticsearch_hosts:
-                es_aggregate_index = "dmarc_aggregate"
-                es_forensic_index = "dmarc_forensic"
-                if opts.elasticsearch_index_suffix:
-                    suffix = opts.elasticsearch_index_suffix
-                    es_aggregate_index = f"{es_aggregate_index}_{suffix}"
-                    es_forensic_index = f"{es_forensic_index}_{suffix}"
-                elastic.set_hosts(
+                es_client = elastic.ElasticsearchClient(
                     opts.elasticsearch_hosts,
                     opts.elasticsearch_ssl,
                     opts.elasticsearch_ssl_cert_path,
                     opts.elasticsearch_username,
                     opts.elasticsearch_password,
                     opts.elasticsearch_apiKey,
-                    timeout=opts.elasticsearch_timeout,
+                    opts.elasticsearch_timeout,
+                    opts.elasticsearch_index_suffix,
+                    opts.elasticsearch_monthly_indexes,
+                    opts.elasticsearch_number_of_shards,
+                    opts.elasticsearch_number_of_replicas,
                 )
-                elastic.migrate_indexes(
-                    aggregate_indexes=[es_aggregate_index],
-                    forensic_indexes=[es_forensic_index],
-                )
+                es_client.migrate_indexes()
         except elastic.ElasticsearchError:
             logger.exception("Elasticsearch Error")
             exit(1)
