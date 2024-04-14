@@ -110,14 +110,14 @@ class MSGraphConnection(MailboxConnection):
     def __init__(
         self,
         auth_method: str,
-        mailbox: str,
         client_id: str,
         client_secret: str,
-        username: str,
-        password: str,
-        tenant_id: str,
         token_file: str,
         allow_unencrypted_storage: bool,
+        username: str | None = None,
+        password: str | None = None,
+        tenant_id: str | None = None,
+        mailbox: str | None = None,
     ):
         """
         Args:
@@ -153,7 +153,7 @@ class MSGraphConnection(MailboxConnection):
             client_params["scopes"] = scopes
 
         self._client = GraphClient(**client_params)
-        self.mailbox_name = mailbox
+        self.mailbox_name = mailbox or username
 
     def create_folder(self, folder_name: str) -> None:
         sub_url = ""
@@ -195,15 +195,16 @@ class MSGraphConnection(MailboxConnection):
         result = self._client.get(url, params=params)
         if result.status_code != 200:
             raise RuntimeError(f"Failed to fetch messages {result.text}")
-        messages = result.json()["value"]
+        data = result.json()
+        messages = data["value"]
         # Loop if next page is present and not obtained message limit.
         while "@odata.nextLink" in result.json() and (
             batch_size == 0 or batch_size - len(messages) > 0
         ):
-            result = self._client.get(result.json()["@odata.nextLink"])
+            result = self._client.get(data["@odata.nextLink"])
             if result.status_code != 200:
                 raise RuntimeError(f"Failed to fetch messages {result.text}")
-            messages.extend(result.json()["value"])
+            messages.extend(data["value"])
         return messages
 
     def mark_message_read(self, message_id: str):

@@ -6,6 +6,7 @@ from __future__ import annotations
 # Standard Library
 import atexit
 import base64
+from collections import deque
 from datetime import datetime, timedelta, timezone
 import hashlib
 import importlib.resources
@@ -610,3 +611,35 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
         raise ValueError(f"Invalid archive file: {error!r}")
 
     return xml
+
+
+class MboxIterator:
+    """Class that allows iterating through all messages in an mbox file
+
+    Returns tuples of `(message_key, message)`.
+    """
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self.mbox = mailbox.mbox(path, create=False)
+        self._message_keys: deque[str] = deque(self.mbox.keys())
+        return
+
+    def __next__(self) -> tuple[str, str]:
+        if not self._message_keys:
+            raise StopIteration()
+
+        message_key = self._message_keys.popleft()
+        return (message_key, self.mbox.get_string(message_key))
+
+    def __iter__(self) -> MboxIterator:
+        return self
+
+    def __bool__(self) -> bool:
+        return bool(self._message_keys)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.path!r})"
+
+    def __str__(self) -> str:
+        return repr(self)
