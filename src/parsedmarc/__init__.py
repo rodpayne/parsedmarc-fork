@@ -205,10 +205,9 @@ def parse_forensic_report(
         ip_db_path=ip_db_path,
         nameservers=nameservers,
         dns_timeout=dns_timeout,
+        strip_attachment_payloads=strip_attachment_payloads,
     )
-    return parser.parse_forensic_report(
-        feedback_report, sample, msg_date, strip_attachment_payloads
-    )
+    return parser.parse_forensic_report(feedback_report, sample, msg_date)
 
 
 def parsed_forensic_reports_to_csv_rows(
@@ -284,8 +283,9 @@ def parse_report_email(
         ip_db_path=ip_db_path,
         nameservers=nameservers,
         dns_timeout=dns_timeout,
+        strip_attachment_payloads=strip_attachment_payloads,
     )
-    return parser.parse_report_email(source, strip_attachment_payloads, keep_alive)
+    return parser.parse_report_email(source, keep_alive)
 
 
 def parse_report_file(
@@ -316,8 +316,9 @@ def parse_report_file(
         ip_db_path=ip_db_path,
         nameservers=nameservers,
         dns_timeout=dns_timeout,
+        strip_attachment_payloads=strip_attachment_payloads,
     )
-    return parser.parse_report_file(source, strip_attachment_payloads, keep_alive)
+    return parser.parse_report_file(source, keep_alive)
 
 
 def get_dmarc_reports_from_mbox(
@@ -346,6 +347,7 @@ def get_dmarc_reports_from_mbox(
         ip_db_path=ip_db_path,
         nameservers=nameservers,
         dns_timeout=dns_timeout,
+        strip_attachment_payloads=strip_attachment_payloads,
     )
     reports = SortedReportContainer()
     try:
@@ -358,10 +360,7 @@ def get_dmarc_reports_from_mbox(
             logger.info(f"Processing message {i+1} of {total_messages}")
             msg_content = mbox.get_string(message_key)
             try:
-                parsed_email = parser.parse_report_email(
-                    msg_content,
-                    strip_attachment_payloads,
-                )
+                parsed_email = parser.parse_report_email(msg_content)
                 reports.add_report(parsed_email)
             except InvalidDMARCReport as error:
                 logger.warning(repr(error))
@@ -416,6 +415,7 @@ def get_dmarc_reports_from_mailbox(
         ip_db_path=ip_db_path,
         nameservers=nameservers,
         dns_timeout=dns_timeout,
+        strip_attachment_payloads=strip_attachment_payloads,
     )
     aggregate_report_msg_uids = []
     forensic_report_msg_uids = []
@@ -450,7 +450,6 @@ def get_dmarc_reports_from_mailbox(
         try:
             parsed_email = parser.parse_report_email(
                 msg_content,
-                strip_attachment_payloads,
                 keep_alive=connection.keepalive,
             )
             parsed_report_type = results.add_report(parsed_email)

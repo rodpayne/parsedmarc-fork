@@ -79,6 +79,7 @@ class ReportParser:
       - Aggregate
       - Forensic
 
+    *New in 9.0*.
     """
 
     def __init__(
@@ -87,11 +88,20 @@ class ReportParser:
         ip_db_path: str | None = None,
         nameservers: list[str] | None = None,
         dns_timeout: float = 2.0,
+        strip_attachment_payloads: bool = False,
     ) -> None:
+        """Args:
+        offline:
+        ip_db_path:
+        nameservers:
+        dns_timeout:
+        strip_attachment_payloads: Remove attachment payloads from forensic report results
+        """
         self.offline = offline
         self.ip_db_path = ip_db_path
         self.nameservers = nameservers
         self.dns_timeout = dns_timeout
+        self.strip_attachment_payloads = strip_attachment_payloads
         self._ip_address_cache = ExpiringDict(max_len=10000, max_age_seconds=1800)
         return
 
@@ -100,14 +110,12 @@ class ReportParser:
     def parse_report_email(
         self,
         source: bytes | str,
-        strip_attachment_payloads: bool = False,
         keep_alive: Callable | None = None,
     ) -> Report:
         """Parse a DMARC report from an email
 
         Args:
             source: An emailed DMARC report in RFC 822 format, as bytes or a string
-            strip_attachment_payloads: Remove attachment payloads from forensic report results
             keep_alive: keep alive function
 
         Returns:
@@ -200,7 +208,6 @@ class ReportParser:
                     feedback_report,
                     sample,
                     date,
-                    strip_attachment_payloads,
                 )
             except InvalidForensicReport as e:
                 error = (
@@ -218,14 +225,12 @@ class ReportParser:
     def parse_report_file(
         self,
         source: str | bytes | BinaryIO,
-        strip_attachment_payloads: bool = False,
         keep_alive: Callable | None = None,
     ) -> Report:
         """Parse a DMARC aggregate or forensic file at the given path, a file-like object. or bytes
 
         Args:
             source: A path to a file, a file like object, or bytes
-            strip_attachment_payloads: Remove attachment payloads from forensic report results
             keep_alive: Keep alive function
 
         Returns:
@@ -252,7 +257,6 @@ class ReportParser:
             try:
                 report = self.parse_report_email(
                     content,
-                    strip_attachment_payloads,
                     keep_alive,
                 )
             except InvalidDMARCReport:
@@ -565,7 +569,6 @@ class ReportParser:
         feedback_report: str,
         sample: str,
         msg_date: datetime,
-        strip_attachment_payloads: bool = False,
     ) -> ForensicReport:
         """Converts a DMARC forensic report and sample to a ForensicReport
 
@@ -573,7 +576,6 @@ class ReportParser:
             feedback_report: A message's feedback report as a string
             sample: The RFC 822 headers or RFC 822 message sample
             msg_date: The message's date header
-            strip_attachment_payloads: Remove attachment payloads from forensic report results
 
         Returns:
             A parsed report and sample
@@ -650,7 +652,7 @@ class ReportParser:
                 if optional_field not in parsed_report:
                     parsed_report[optional_field] = None
 
-            parsed_sample = parse_email(sample, strip_attachment_payloads=strip_attachment_payloads)
+            parsed_sample = parse_email(sample, self.strip_attachment_payloads)
 
             if "reported_domain" not in parsed_report:
                 parsed_report["reported_domain"] = parsed_sample["from"]["domain"]
