@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 # Standard Library
+from copy import deepcopy
 from typing import Any
+
+# Installed
 
 
 ### CLASSES
@@ -221,3 +224,10 @@ class SortedReportContainer:
             return "forensic"
 
         raise ValueError(f"Unsupported report type: {type(report)}")
+
+    def dict(self) -> dict[str, list]:
+        dict_ = {
+            "aggregate_reports": [deepcopy(report.data) for report in self.aggregate_reports],
+            "forensic_reports": [deepcopy(report.data) for report in self.forensic_reports],
+        }
+        return dict_
