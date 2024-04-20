@@ -1,22 +1,22 @@
 ### IMPORTS
 ### ============================================================================
-## Future
+# Future
 from __future__ import annotations
 
-## Standard Library
+# Standard Library
 import enum
 import logging
 import types
 from typing import Any, get_type_hints
 
-## Installed
+# Installed
 import dataclassy
 from pillar.logging import LoggingMixin, get_logger_name_for_instance
 from pydantic import BaseModel
 
-## Application
+# Local
 from ..parser import ReportParser
-from ..reports import Report
+from ..report import Report
 
 
 ### CONSTANTS
@@ -134,6 +134,9 @@ class Source(LoggingMixin):
             timeout: Giveup after this many seonds (TODO)
             force: If a timeout would occur, instead force shutdown.
         """
+        # pylint: disable=unused-argument
+        # timeout, force known unused.
+
         if self._state != SourceState.RUNNING:
             raise RuntimeError("Source is not running")
 
@@ -209,14 +212,14 @@ class Source(LoggingMixin):
     ## -------------------------------------------------------------------------
 
 
-class BaseConfig(BaseModel):
+class BaseConfig(BaseModel):  # pylint: disable=too-few-public-methods
     pass
 
 
 ## ReportJob
 ## -----------------------------------------------------------------------------
 @dataclassy.dataclass(slots=True)
-class Job:
+class Job:  # pylint: disable=too-few-public-methods
     """Container for a report and the source it came from.
 
     This allows for callbacks / tracking the report as it is processed

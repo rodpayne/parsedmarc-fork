@@ -42,12 +42,13 @@ from parsedmarc.mail import GmailConnection, IMAPConnection, MSGraphConnection
 from parsedmarc.mail.graph import AuthMethod
 from parsedmarc.utils import is_mbox
 
-formatter = logging.Formatter(
-    fmt="%(levelname)8s:%(filename)s:%(lineno)d:%(message)s",
-    datefmt="%Y-%m-%d:%H:%M:%S",
-)
 handler = logging.StreamHandler()
-handler.setFormatter(formatter)
+handler.setFormatter(
+    logging.Formatter(
+        fmt="%(levelname)8s:%(filename)s:%(lineno)d:%(message)s",
+        datefmt="%Y-%m-%d:%H:%M:%S",
+    )
+)
 logger.addHandler(handler)
 
 
@@ -107,24 +108,24 @@ def _main():
                     try:
                         es_client.save_aggregate_report_to_elasticsearch(aggregate_report)
                     except elastic.AlreadySaved as warning:
-                        logger.warning(warning.__str__())
+                        logger.warning(str(warning))
                     except elastic.ElasticsearchError as error_:
                         logger.error(f"Elasticsearch Error: {error_!r}")
-                    except Exception as error_:
+                    except Exception as error_:  # pylint: disable=broad-exception-caught
                         logger.error(f"Elasticsearch exception error: {error_!r}")
 
                 # AWS S3
                 if opts.s3_bucket:
                     try:
                         s3_client.save_aggregate_report_to_s3(aggregate_report)
-                    except Exception as error_:
+                    except Exception as error_:  # pylint: disable=broad-exception-caught
                         logger.error(f"S3 Error: {error_!r}")
 
                 # Syslog
                 if opts.syslog_server:
                     try:
                         syslog_client.save_aggregate_report_to_syslog(aggregate_report)
-                    except Exception as error_:
+                    except Exception as error_:  # pylint: disable=broad-exception-caught
                         logger.error(f"Syslog Error: {error_!r}")
 
             # store in backends that support list of reports
@@ -134,7 +135,7 @@ def _main():
                     kafka_client.save_aggregate_reports_to_kafka(
                         reports_.aggregate_reports, kafka_aggregate_topic
                     )
-                except Exception as error_:
+                except Exception as error_:  # pylint: disable=broad-exception-caught
                     logger.error(f"Kafka Error: {error_!r}")
 
             # Splunk HEC
@@ -151,24 +152,24 @@ def _main():
                     try:
                         es_client.save_forensic_report_to_elasticsearch(forensic_report)
                     except elastic.AlreadySaved as warning:
-                        logger.warning(warning.__str__())
+                        logger.warning(str(warning))
                     except elastic.ElasticsearchError as error_:
                         logger.error(f"Elasticsearch Error: {error_!r}")
                     except InvalidDMARCReport as error_:
-                        logger.error(error_.__str__())
+                        logger.error(str(error_))
 
                 # AWS S3
                 if opts.s3_bucket:
                     try:
                         s3_client.save_forensic_report_to_s3(forensic_report)
-                    except Exception as error_:
+                    except Exception as error_:  # pylint: disable=broad-exception-caught
                         logger.error(f"S3 Error: {error_!r}")
 
                 # Syslog
                 if opts.syslog_server:
                     try:
                         syslog_client.save_forensic_report_to_syslog(forensic_report)
-                    except Exception as error_:
+                    except Exception as error_:  # pylint: disable=broad-exception-caught
                         logger.error(f"Syslog Error: {error_!r}")
 
             # store in backends that support list of reports
@@ -178,7 +179,7 @@ def _main():
                     kafka_client.save_forensic_reports_to_kafka(
                         reports_.forensic_reports, kafka_forensic_topic
                     )
-                except Exception as error_:
+                except Exception as error_:  # pylint: disable=broad-exception-caught
                     logger.error(f"Kafka Error: {error_!r}")
 
             # Splunk HEC
@@ -204,13 +205,8 @@ def _main():
                 la_client.publish_results(reports_, opts.save_aggregate, opts.save_forensic)
             except loganalytics.LogAnalyticsException as e:
                 logger.error(f"Log Analytics error: {e!r}")
-            except Exception as e:
-                logger.error(
-                    "Unknown error occured"
-                    + " during the publishing"
-                    + " to Log Analitics: "
-                    + e.__str__()
-                )
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                logger.error(f"Unknown error occured during the publishing to Log Analitics: {e!r}")
         return
 
     arg_parser = ArgumentParser(description="Parses DMARC reports")
@@ -336,7 +332,7 @@ def _main():
         elasticsearch_monthly_indexes=False,
         elasticsearch_username=None,
         elasticsearch_password=None,
-        elasticsearch_apiKey=None,
+        elasticsearch_api_key=None,
         kafka_hosts=None,
         kafka_username=None,
         kafka_password=None,
@@ -385,7 +381,7 @@ def _main():
         abs_path = os.path.abspath(args.config_file)
         if not os.path.exists(abs_path):
             logger.error(f"A file does not exist at {abs_path}")
-            exit(-1)
+            sys.exit(-1)
         opts.silent = True
         config = ConfigParser()
         config.read(args.config_file)
@@ -429,10 +425,7 @@ def _main():
                 opts.n_procs = general_config.getint("n_procs")
             if "chunk_size" in general_config:
                 opts.chunk_size = general_config.getint("chunk_size")
-            if "ip_db_path" in general_config:
-                opts.ip_db_path = general_config["ip_db_path"]
-            else:
-                opts.ip_db_path = None
+            opts.ip_db_path = general_config.get("ip_db_path")
 
         if "mailbox" in config.sections():
             mailbox_config = config["mailbox"]
@@ -465,7 +458,7 @@ def _main():
                 opts.imap_host = imap_config["host"]
             else:
                 logger.error("host setting missing from the imap config section")
-                exit(-1)
+                sys.exit(-1)
             if "port" in imap_config:
                 opts.imap_port = imap_config.getint("port")
             if "timeout" in imap_config:
@@ -481,12 +474,12 @@ def _main():
                 opts.imap_user = imap_config["user"]
             else:
                 logger.critical("user setting missing from the imap config section")
-                exit(-1)
+                sys.exit(-1)
             if "password" in imap_config:
                 opts.imap_password = imap_config["password"]
             else:
                 logger.critical("password setting missing from the imap config section")
-                exit(-1)
+                sys.exit(-1)
             if "reports_folder" in imap_config:
                 opts.mailbox_reports_folder = imap_config["reports_folder"]
                 logger.warning(
@@ -554,37 +547,37 @@ def _main():
                     opts.graph_user = graph_config["user"]
                 else:
                     logger.critical("user setting missing from the msgraph config section")
-                    exit(-1)
+                    sys.exit(-1)
                 if "password" in graph_config:
                     opts.graph_password = graph_config["password"]
                 else:
                     logger.critical("password setting missing from the msgraph config section")
-                    exit(-1)
+                    sys.exit(-1)
 
             if opts.graph_auth_method != AuthMethod.UsernamePassword.name:
                 if "tenant_id" in graph_config:
                     opts.graph_tenant_id = graph_config["tenant_id"]
                 else:
                     logger.critical("tenant_id setting missing from the msgraph config section")
-                    exit(-1)
+                    sys.exit(-1)
 
             if "client_secret" in graph_config:
                 opts.graph_client_secret = graph_config["client_secret"]
             else:
                 logger.critical("client_secret setting missing from the msgraph config section")
-                exit(-1)
+                sys.exit(-1)
 
             if "client_id" in graph_config:
                 opts.graph_client_id = graph_config["client_id"]
             else:
                 logger.critical("client_id setting missing from the msgraph config section")
-                exit(-1)
+                sys.exit(-1)
 
             if "mailbox" in graph_config:
                 opts.graph_mailbox = graph_config["mailbox"]
             elif opts.graph_auth_method != AuthMethod.UsernamePassword.name:
                 logger.critical("mailbox setting missing from the msgraph config section")
-                exit(-1)
+                sys.exit(-1)
 
             if "allow_unencrypted_storage" in graph_config:
                 opts.graph_allow_unencrypted_storage = graph_config.getboolean(
@@ -597,21 +590,23 @@ def _main():
                 opts.elasticsearch_hosts = _str_to_list(elasticsearch_config["hosts"])
             else:
                 logger.critical("hosts setting missing from the elasticsearch config section")
-                exit(-1)
+                sys.exit(-1)
             if "timeout" in elasticsearch_config:
-                timeout = elasticsearch_config.getfloat("timeout")
-                opts.elasticsearch_timeout = timeout
+                opts.elasticsearch_timeout = elasticsearch_config.getfloat("timeout")
             if "number_of_shards" in elasticsearch_config:
-                number_of_shards = elasticsearch_config.getint("number_of_shards")
-                opts.elasticsearch_number_of_shards = number_of_shards
-                if "number_of_replicas" in elasticsearch_config:
-                    number_of_replicas = elasticsearch_config.getint("number_of_replicas")
-                    opts.elasticsearch_number_of_replicas = number_of_replicas
+                opts.elasticsearch_number_of_shards = elasticsearch_config.getint(
+                    "number_of_shards"
+                )
+            if "number_of_replicas" in elasticsearch_config:
+                opts.elasticsearch_number_of_replicas = elasticsearch_config.getint(
+                    "number_of_replicas"
+                )
             if "index_suffix" in elasticsearch_config:
                 opts.elasticsearch_index_suffix = elasticsearch_config["index_suffix"]
             if "monthly_indexes" in elasticsearch_config:
-                monthly = elasticsearch_config.getboolean("monthly_indexes")
-                opts.elasticsearch_monthly_indexes = monthly
+                opts.elasticsearch_monthly_indexes = elasticsearch_config.getboolean(
+                    "monthly_indexes"
+                )
             if "ssl" in elasticsearch_config:
                 opts.elasticsearch_ssl = elasticsearch_config.getboolean("ssl")
             if "cert_path" in elasticsearch_config:
@@ -620,25 +615,25 @@ def _main():
                 opts.elasticsearch_username = elasticsearch_config["user"]
             if "password" in elasticsearch_config:
                 opts.elasticsearch_password = elasticsearch_config["password"]
-            if "apiKey" in elasticsearch_config:
-                opts.elasticsearch_apiKey = elasticsearch_config["apiKey"]
+            if "api_key" in elasticsearch_config:
+                opts.elasticsearch_api_key = elasticsearch_config["api_key"]
         if "splunk_hec" in config.sections():
             hec_config = config["splunk_hec"]
             if "url" in hec_config:
                 opts.hec = hec_config["url"]
             else:
                 logger.critical("url setting missing from the splunk_hec config section")
-                exit(-1)
+                sys.exit(-1)
             if "token" in hec_config:
                 opts.hec_token = hec_config["token"]
             else:
                 logger.critical("token setting missing from the splunk_hec config section")
-                exit(-1)
+                sys.exit(-1)
             if "index" in hec_config:
                 opts.hec_index = hec_config["index"]
             else:
                 logger.critical("index setting missing from the splunk_hec config section")
-                exit(-1)
+                sys.exit(-1)
             if "skip_certificate_verification" in hec_config:
                 opts.hec_skip_certificate_verification = hec_config["skip_certificate_verification"]
         if "kafka" in config.sections():
@@ -647,27 +642,28 @@ def _main():
                 opts.kafka_hosts = _str_to_list(kafka_config["hosts"])
             else:
                 logger.critical("hosts setting missing from the kafka config section")
-                exit(-1)
+                sys.exit(-1)
             if "user" in kafka_config:
                 opts.kafka_username = kafka_config["user"]
             else:
                 logger.critical("user setting missing from the kafka config section")
-                exit(-1)
+                sys.exit(-1)
             if "password" in kafka_config:
                 opts.kafka_password = kafka_config["password"]
             else:
                 logger.critical("password setting missing from the kafka config section")
-                exit(-1)
+                sys.exit(-1)
             if "ssl" in kafka_config:
                 opts.kafka_ssl = kafka_config.getboolean("ssl")
             if "skip_certificate_verification" in kafka_config:
-                kafka_verify = kafka_config.getboolean("skip_certificate_verification")
-                opts.kafka_skip_certificate_verification = kafka_verify
+                opts.kafka_skip_certificate_verification = kafka_config.getboolean(
+                    "skip_certificate_verification"
+                )
             if "aggregate_topic" in kafka_config:
                 opts.kafka_aggregate = kafka_config["aggregate_topic"]
             else:
                 logger.critical("aggregate_topic setting missing from the kafka config section")
-                exit(-1)
+                sys.exit(-1)
             if "forensic_topic" in kafka_config:
                 opts.kafka_username = kafka_config["forensic_topic"]
             else:
@@ -678,7 +674,7 @@ def _main():
                 opts.smtp_host = smtp_config["host"]
             else:
                 logger.critical("host setting missing from the smtp config section")
-                exit(-1)
+                sys.exit(-1)
             if "port" in smtp_config:
                 opts.smtp_port = smtp_config.getint("port")
             if "ssl" in smtp_config:
@@ -690,12 +686,12 @@ def _main():
                 opts.smtp_user = smtp_config["user"]
             else:
                 logger.critical("user setting missing from the smtp config section")
-                exit(-1)
+                sys.exit(-1)
             if "password" in smtp_config:
                 opts.smtp_password = smtp_config["password"]
             else:
                 logger.critical("password setting missing from the smtp config section")
-                exit(-1)
+                sys.exit(-1)
             if "from" in smtp_config:
                 opts.smtp_from = smtp_config["from"]
             else:
@@ -716,15 +712,8 @@ def _main():
                 opts.s3_bucket = s3_config["bucket"]
             else:
                 logger.critical("bucket setting missing from the s3 config section")
-                exit(-1)
-            if "path" in s3_config:
-                opts.s3_path = s3_config["path"]
-                if opts.s3_path.startswith("/"):
-                    opts.s3_path = opts.s3_path[1:]
-                if opts.s3_path.endswith("/"):
-                    opts.s3_path = opts.s3_path[:-1]
-            else:
-                opts.s3_path = ""
+                sys.exit(-1)
+            opts.s3_path = s3_config.get("path", "").strip("/")
 
             if "region_name" in s3_config:
                 opts.s3_region_name = s3_config["region_name"]
@@ -741,11 +730,8 @@ def _main():
                 opts.syslog_server = syslog_config["server"]
             else:
                 logger.critical("server setting missing from the syslog config section")
-                exit(-1)
-            if "port" in syslog_config:
-                opts.syslog_port = syslog_config["port"]
-            else:
-                opts.syslog_port = 514
+                sys.exit(-1)
+            opts.syslog_port = syslog_config.get("port", 514)
 
         if "gmail_api" in config.sections():
             gmail_api_config = config["gmail_api"]
@@ -778,13 +764,14 @@ def _main():
         logger.setLevel(logging.DEBUG)
     if opts.log_file:
         try:
-            log_file = open(opts.log_file, "w")
-            log_file.close()
+            # check log file is writable
+            open(opts.log_file, "w").close()
             fh = logging.FileHandler(opts.log_file)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+            fh.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+                )
             )
-            fh.setFormatter(formatter)
             logger.addHandler(fh)
         except Exception as error:
             logger.warning(f"Unable to write to log file: {error!r}")
@@ -796,7 +783,7 @@ def _main():
         and len(opts.file_path) == 0
     ):
         logger.error("You must supply input files or a mailbox connection")
-        exit(1)
+        sys.exit(1)
 
     logger.info("Starting parsedmarc")
 
@@ -809,7 +796,7 @@ def _main():
                     opts.elasticsearch_ssl_cert_path,
                     opts.elasticsearch_username,
                     opts.elasticsearch_password,
-                    opts.elasticsearch_apiKey,
+                    opts.elasticsearch_api_key,
                     opts.elasticsearch_timeout,
                     opts.elasticsearch_index_suffix,
                     opts.elasticsearch_monthly_indexes,
@@ -819,7 +806,7 @@ def _main():
                 es_client.migrate_indexes()
         except elastic.ElasticsearchError:
             logger.exception("Elasticsearch Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.s3_bucket:
         try:
@@ -846,7 +833,7 @@ def _main():
     if opts.hec:
         if opts.hec_token is None or opts.hec_index is None:
             logger.error("HEC token and HEC index are required when using HEC URL")
-            exit(1)
+            sys.exit(1)
 
         verify = True
         if opts.hec_skip_certificate_verification:
@@ -916,7 +903,7 @@ def _main():
     pool.join()
 
     for result in results:
-        if type(result[0]) is InvalidDMARCReport:
+        if isinstance(result[0], InvalidDMARCReport):
             logger.error(f"Failed to parse {result[1]} - {result[0]}")
         else:
             reports.add_report(result[0])
@@ -959,9 +946,9 @@ def _main():
                 password=opts.imap_password,
             )
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("IMAP Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.graph_client_id:
         try:
@@ -978,9 +965,9 @@ def _main():
                 allow_unencrypted_storage=opts.graph_allow_unencrypted_storage,
             )
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("MS Graph Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.gmail_api_credentials_file:
         if opts.mailbox_delete:
@@ -1003,9 +990,9 @@ def _main():
                 oauth2_port=opts.gmail_api_oauth2_port,
             )
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Gmail API Error")
-            exit(1)
+            sys.exit(1)
 
     if mailbox_connection:
         try:
@@ -1025,9 +1012,9 @@ def _main():
             reports.aggregate_reports += reports["aggregate_reports"]
             reports.forensic_reports += reports["forensic_reports"]
 
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Mailbox Error")
-            exit(1)
+            sys.exit(1)
 
     process_reports(reports)
 
@@ -1047,9 +1034,9 @@ def _main():
                 password=opts.smtp_password,
                 subject=opts.smtp_subject,
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Failed to email results")
-            exit(1)
+            sys.exit(1)
 
     if mailbox_connection and opts.mailbox_watch:
         logger.info("Watching for email - Quit with ctrl-c")
@@ -1072,7 +1059,7 @@ def _main():
             )
         except FileExistsError as error:
             logger.error(f"{error!r}")
-            exit(1)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

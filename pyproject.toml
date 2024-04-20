@@ -59,6 +59,7 @@ dependencies = [
     "lxml>=4.4.0",
     "mailsuite>=1.6.1",
     "msgraph-core>=0.2.2,<1.0.0",  # msgraph-core 1.0 has breaking changes
+    "orjson",
     "pillar",
     "publicsuffixlist>=0.10.0",
     "pydantic",
@@ -85,9 +86,8 @@ dev = [
     "pyupgrade",
     "black",
     "isort",
-    #"pylint",
+    "pylint",
     "mypy",
-    "flake8",
     ## Testing
     "pytest",
     "codecov",

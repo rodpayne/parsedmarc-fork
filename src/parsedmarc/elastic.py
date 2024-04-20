@@ -1,6 +1,7 @@
 # Future
 from __future__ import annotations
 
+# Standard Library
 import datetime
 
 # Installed
@@ -65,7 +66,7 @@ class _SPFResult(InnerDoc):
 
 
 class _AggregateReportDoc(Document):
-    class Index:
+    class Index:  # pylint: disable=too-few-public-methods
         name = "dmarc_aggregate"
 
     xml_schema = Text()
@@ -103,11 +104,11 @@ class _AggregateReportDoc(Document):
     def add_spf_result(self, domain, scope, result):
         self.spf_results.append(_SPFResult(domain=domain, scope=scope, result=result))
 
-    def save(self, **kwargs):
+    def save(self, *args, **kwargs):
         self.passed_dmarc = False
         self.passed_dmarc = self.spf_aligned or self.dkim_aligned
 
-        return super().save(**kwargs)
+        return super().save(*args, **kwargs)
 
 
 class _EmailAddressDoc(InnerDoc):
@@ -155,7 +156,7 @@ class _ForensicSampleDoc(InnerDoc):
 
 
 class _ForensicReportDoc(Document):
-    class Index:
+    class Index:  # pylint: disable=too-few-public-methods
         name = "dmarc_forensic"
 
     feedback_type = Text()
@@ -190,7 +191,7 @@ class ElasticsearchClient:
         ssl_cert_path: str | None = None,
         username: str | None = None,
         password: str | None = None,
-        apiKey: str | None = None,
+        api_key: str | None = None,
         timeout: float = 60.0,
         index_suffix: str | None = None,
         monthly_indexes: bool = True,
@@ -204,7 +205,7 @@ class ElasticsearchClient:
             ssl_cert_path: Path to the certificate chain
             username: The username to use for authentication
             password: The password to use for authentication
-            apiKey: The Base64 encoded API key to use for authentication
+            api_key: The Base64 encoded API key to use for authentication
             timeout: Timeout in seconds
             index_suffix: Suffix to add to index names
             monthly_indexes: Use monthly indexes instead of daily indexes
@@ -224,8 +225,8 @@ class ElasticsearchClient:
                 conn_params["verify_certs"] = False
         if username and password:
             conn_params["http_auth"] = username + ":" + password
-        if apiKey:
-            conn_params["api_key"] = apiKey
+        if api_key:
+            conn_params["api_key"] = api_key
         self.client = Elasticsearch(**conn_params)
 
         ## Other settings
@@ -258,7 +259,7 @@ class ElasticsearchClient:
                 )
                 index.create()
         except Exception as e:
-            raise ElasticsearchError(e)
+            raise ElasticsearchError(e) from e
         return
 
     def migrate_indexes(self) -> None:
@@ -283,6 +284,7 @@ class ElasticsearchClient:
         if forensic_indexes is None:
             forensic_indexes = []
 
+        ## Migrate aggregate indexes
         for aggregate_index_name in aggregate_indexes:
             aggregate_index = Index(aggregate_index_name, using=self.client)
             if not aggregate_index.exists():
@@ -312,8 +314,7 @@ class ElasticsearchClient:
                 reindex(self.client, aggregate_index_name, new_index_name)
                 Index(aggregate_index_name, using=self.client).delete()
 
-        for forensic_index in forensic_indexes:
-            pass
+        # Forensic indexes do not currently need migrating
         return
 
     def get_index_name(self, base: str, date: datetime.datetime) -> str:
@@ -357,21 +358,21 @@ class ElasticsearchClient:
         aggregate_report["end_date"] = end_date
         date_range = [aggregate_report["begin_date"], aggregate_report["end_date"]]
 
-        org_name_query = Q(dict(match_phrase=dict(org_name=org_name)))
-        report_id_query = Q(dict(match_phrase=dict(report_id=report_id)))
-        domain_query = Q(dict(match_phrase={"published_policy.domain": domain}))
-        begin_date_query = Q(dict(match=dict(date_begin=begin_date)))
-        end_date_query = Q(dict(match=dict(date_end=end_date)))
+        org_name_query = Q({"match_phrase": {"org_name": org_name}})
+        report_id_query = Q({"match_phrase": {"report_id": report_id}})
+        domain_query = Q({"match_phrase": {"published_policy.domain": domain}})
+        begin_date_query = Q({"match": {"date_begin": begin_date}})
+        end_date_query = Q({"match": {"date_end": end_date}})
 
         search = Search(index=f"{self.aggregate_index_base}*", using=self.client)
-        query = org_name_query & report_id_query & domain_query
-        query = query & begin_date_query & end_date_query
-        search.query = query
+        search.query = (
+            org_name_query & report_id_query & domain_query & begin_date_query & end_date_query
+        )
 
         try:
             existing = search.execute()
         except Exception as e:
-            raise ElasticsearchError(f"Search for existing report error: {e!r}")
+            raise ElasticsearchError(f"Search for existing report error: {e!r}") from e
 
         if len(existing) > 0:
             raise AlreadySaved(
@@ -440,7 +441,7 @@ class ElasticsearchClient:
             try:
                 agg_doc.save(using=self.client)
             except Exception as e:
-                raise ElasticsearchError(e)
+                raise ElasticsearchError(e) from e
         return
 
     def save_forensic_report_to_elasticsearch(
@@ -470,24 +471,20 @@ class ElasticsearchClient:
         arrival_date = human_timestamp_to_datetime(arrival_date_human)
 
         search = Search(index=f"{self.forensic_index_base}*", using=self.client)
-        arrival_query = {"match": {"arrival_date": arrival_date}}
-        q = Q(arrival_query)
+        q = Q({"match": {"arrival_date": arrival_date}})
 
         from_ = None
         to_ = None
         subject = None
         if "from" in headers:
-            from_ = headers["from"]
-            from_query = {"match_phrase": {"sample.headers.from": from_}}
-            q = q & Q(from_query)
+            to_ = headers["from"]
+            q &= Q({"match_phrase": {"sample.headers.from": to_}})
         if "to" in headers:
             to_ = headers["to"]
-            to_query = {"match_phrase": {"sample.headers.to": to_}}
-            q = q & Q(to_query)
+            q &= Q({"match_phrase": {"sample.headers.to": to_}})
         if "subject" in headers:
             subject = headers["subject"]
-            subject_query = {"match_phrase": {"sample.headers.subject": subject}}
-            q = q & Q(subject_query)
+            q &= Q({"match_phrase": {"sample.headers.subject": subject}})
 
         search.query = q
         existing = search.execute()
@@ -545,7 +542,7 @@ class ElasticsearchClient:
                 sample=sample,
             )
         except KeyError as e:
-            raise InvalidForensicReport(f"Forensic report missing required field: {e!r}")
+            raise InvalidForensicReport(f"Forensic report missing required field: {e!r}") from e
 
         index_name = self.get_index_name(self.forensic_index_base, arrival_date)
         self.create_index(index_name)
@@ -554,5 +551,5 @@ class ElasticsearchClient:
         try:
             forensic_doc.save(using=self.client)
         except Exception as e:
-            raise ElasticsearchError(e)
+            raise ElasticsearchError(e) from e
         return

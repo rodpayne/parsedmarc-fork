@@ -7,8 +7,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-# Installed
-
 
 ### CLASSES
 ### ============================================================================
@@ -16,6 +14,8 @@ from typing import Any
 ## -----------------------------------------------------------------------------
 class Report:
     """Base class for all reports"""
+
+    # pylint: disable=too-few-public-methods
 
     def __init__(self, data: dict[str, Any]) -> None:
         self.data = data
@@ -104,20 +104,13 @@ class AggregateReport(Report):
             row["dkim_aligned"] = record["alignment"]["dkim"]
             row["dmarc_aligned"] = record["alignment"]["dmarc"]
             row["disposition"] = record["policy_evaluated"]["disposition"]
-            policy_override_reasons = list(
-                map(
-                    lambda r_: r_["type"],
-                    record["policy_evaluated"]["policy_override_reasons"],
-                )
+            row["policy_override_reasons"] = ",".join(
+                r["type"] for r in record["policy_evaluated"]["policy_override_reasons"]
             )
-            policy_override_comments = list(
-                map(
-                    lambda r_: r_["comment"] or "none",
-                    record["policy_evaluated"]["policy_override_reasons"],
-                )
+            row["policy_override_comments"] = "|".join(
+                r["comment"] or "none"
+                for r in record["policy_evaluated"]["policy_override_reasons"]
             )
-            row["policy_override_reasons"] = ",".join(policy_override_reasons)
-            row["policy_override_comments"] = "|".join(policy_override_comments)
             row["envelope_from"] = record["identifiers"]["envelope_from"]
             row["header_from"] = record["identifiers"]["header_from"]
             row["envelope_to"] = record["identifiers"]["envelope_to"]

@@ -1,23 +1,20 @@
 ### IMPORTS
 ### ============================================================================
-## Future
+# Future
 from __future__ import annotations
 
-## Standard Library
+# Standard Library
 from collections import deque
 import pathlib
 from typing import Literal
 
-## Installed
-
-## Application
-from .base import Source, SourceState, BaseConfig, Job
+# Local
 from ..utils import MboxIterator
+from .base import BaseConfig, Job, Source, SourceState
+
 
 ### CLASSES
 ### ============================================================================
-
-
 ## One Shot
 ## -----------------------------------------------------------------------------
 class DirectoriesAndFiles(Source):
@@ -124,6 +121,9 @@ class DirectoriesAndFilesConfig(BaseConfig):
 ## -----------------------------------------------------------------------------
 class DirectoryWatcher(Source):
     config: DirectoryWatcherConfig
+
+    def get_job(self) -> Job | None:
+        return
 
 
 class DirectoryWatcherConfig(BaseConfig):

@@ -28,7 +28,7 @@ from parsedmarc.parser import (  # noqa: F401
     ParserError,
     ReportParser,
 )
-from parsedmarc.reports import (
+from parsedmarc.report import (
     AggregateReport,
     ForensicReport,
     Report,
@@ -61,7 +61,7 @@ def _parse_report_record(
         nameservers=nameservers,
         dns_timeout=dns_timeout,
     )
-    return parser._parse_aggregate_report_record(record)
+    return parser._parse_aggregate_report_record(record)  # pylint: disable=protected-access
 
 
 def parse_aggregate_report_xml(
@@ -140,10 +140,7 @@ def parsed_aggregate_reports_to_csv_rows(
     if isinstance(reports, AggregateReport):
         reports = [reports]
 
-    rows: list[dict[str, Any]] = []
-
-    for report in reports:
-        rows += report.to_csv_rows()
+    rows = [report.to_csv_rows() for report in reports]
 
     for r in rows:
         for k, v in r.items():
@@ -162,17 +159,11 @@ def parsed_aggregate_reports_to_csv(reports: AggregateReport | list[AggregateRep
     Returns:
         Parsed aggregate report data in flat CSV format, including headers
     """
-    csv_file_object = StringIO(newline="\n")
-    writer = DictWriter(csv_file_object, AggregateReport.CSV_FIELDS)
-    writer.writeheader()
-
-    rows = parsed_aggregate_reports_to_csv_rows(reports)
-
-    for row in rows:
-        writer.writerow(row)
-        csv_file_object.flush()
-
-    return csv_file_object.getvalue()
+    csv_file = StringIO()
+    csv_writer = DictWriter(csv_file, fieldnames=AggregateReport.CSV_FIELDS)
+    csv_writer.writeheader()
+    csv_writer.writerows(parsed_aggregate_reports_to_csv_rows(reports))
+    return csv_file.getvalue()
 
 
 def parse_forensic_report(
@@ -224,11 +215,7 @@ def parsed_forensic_reports_to_csv_rows(
     if isinstance(reports, ForensicReport):
         reports = [reports]
 
-    rows: list[dict[str, Any]] = []
-
-    for report in reports:
-        rows.append(report.to_csv_row())
-    return rows
+    return [report.to_csv_row() for report in reports]
 
 
 def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport]) -> str:
@@ -243,15 +230,7 @@ def parsed_forensic_reports_to_csv(reports: ForensicReport | list[ForensicReport
     csv_file = StringIO()
     csv_writer = DictWriter(csv_file, fieldnames=ForensicReport.CSV_FIELDS)
     csv_writer.writeheader()
-
-    rows = parsed_forensic_reports_to_csv_rows(reports)
-
-    for row in rows:
-        new_row: dict[str, Any] = {}
-        for key in new_row.keys():
-            new_row[key] = row[key]
-        csv_writer.writerow(new_row)
-
+    csv_writer.writerows(parsed_forensic_reports_to_csv_rows(reports))
     return csv_file.getvalue()
 
 
@@ -355,8 +334,7 @@ def get_dmarc_reports_from_mbox(
         message_keys = mbox.keys()
         total_messages = len(message_keys)
         logger.debug(f"Found {total_messages} messages in {source}")
-        for i in range(len(message_keys)):
-            message_key = message_keys[i]
+        for i, message_key in enumerate(message_keys):
             logger.info(f"Processing message {i+1} of {total_messages}")
             msg_content = mbox.get_string(message_key)
             try:
@@ -364,8 +342,8 @@ def get_dmarc_reports_from_mbox(
                 reports.add_report(parsed_email)
             except InvalidDMARCReport as error:
                 logger.warning(repr(error))
-    except mailbox.NoSuchMailboxError:
-        raise InvalidDMARCReport(f"Mailbox {source} does not exist")
+    except mailbox.NoSuchMailboxError as e:
+        raise InvalidDMARCReport(f"Mailbox {source} does not exist") from e
     return reports
 
 
@@ -459,7 +437,7 @@ def get_dmarc_reports_from_mailbox(
                 forensic_report_msg_uids.append(msg_uid)
 
         except InvalidDMARCReport as error:
-            logger.warning(error.__str__())
+            logger.warning(repr(error))
             if not test:
                 if delete:
                     logger.debug(f"Deleting message UID {msg_uid}")
@@ -479,7 +457,7 @@ def get_dmarc_reports_from_mailbox(
                 try:
                     connection.delete_message(msg_uid)
 
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.error(f"Mailbox error: Error deleting message UID {msg_uid}: {e!r}")
         else:
             if len(aggregate_report_msg_uids) > 0:
@@ -494,7 +472,7 @@ def get_dmarc_reports_from_mailbox(
                     )
                     try:
                         connection.move_message(msg_uid, aggregate_reports_folder)
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         logger.error(f"Mailbox error: Error moving message UID {msg_uid}: {e!r}")
             if len(forensic_report_msg_uids) > 0:
                 logger.debug(
@@ -508,7 +486,7 @@ def get_dmarc_reports_from_mailbox(
                     )
                     try:
                         connection.move_message(msg_uid, forensic_reports_folder)
-                    except Exception as e:
+                    except Exception as e:  # pylint: disable=broad-exception-caught
                         logger.error(f"Mailbox error: Error moving message UID {msg_uid}: {e!r}")
 
     total_messages = len(connection.fetch_messages(reports_folder))

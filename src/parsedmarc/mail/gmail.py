@@ -38,7 +38,7 @@ def _get_creds(token_file, credentials_file, scopes, oauth2_port):
             flow = InstalledAppFlow.from_client_secrets_file(credentials_file, scopes)
             creds = flow.run_local_server(open_browser=False, oauth2_port=oauth2_port)
         # Save the credentials for the next run
-        with Path(token_file).open("w") as token:
+        with Path(token_file).open("w", encoding="utf8") as token:
             token.write(creds.to_json())
     return creds
 
@@ -141,6 +141,6 @@ class GmailConnection(MailboxConnection):
         results = self.service.users().labels().list(userId="me").execute()
         labels = results.get("labels", [])
         for label in labels:
-            if label_name == label["id"] or label_name == label["name"]:
+            if label_name in {label["id"], label["name"]}:
                 return label["id"]
         raise ValueError(f"Label {label_name} not found")

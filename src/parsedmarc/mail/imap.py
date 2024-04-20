@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 # Standard Library
-from socket import timeout
-from time import sleep
+import socket
+import time
 
 # Installed
 from imapclient.exceptions import IMAPClientError
@@ -93,9 +93,9 @@ class IMAPConnection(MailboxConnection):
                     idle_callback=idle_callback_wrapper,
                     idle_timeout=check_timeout,
                 )
-            except (timeout, IMAPClientError):
+            except (socket.timeout, IMAPClientError):
                 logger.warning("IMAP connection timeout. Reconnecting...")
-                sleep(check_timeout)
+                time.sleep(check_timeout)
             except Exception as e:
                 logger.warning(f"IMAP connection error. {e!r}. Reconnecting...")
-                sleep(check_timeout)
+                time.sleep(check_timeout)

@@ -62,9 +62,11 @@ class HECClient:
         self.session = requests.Session()
         self.timeout = timeout
         self.session.verify = verify
-        self._common_data: dict[str, Any] = dict(
-            host=self.host, source=self.source, index=self.index
-        )
+        self._common_data = {
+            "host": self.host,
+            "source": self.source,
+            "index": self.index,
+        }
 
         self.session.headers = {
             "User-Agent": f"parsedmarc/{__version__}",
@@ -92,7 +94,7 @@ class HECClient:
         for _report in aggregate_reports:
             report = _report.data
             for record in report["records"]:
-                new_report = dict()
+                new_report: dict[str, Any] = {}
                 for metadata in report["report_metadata"]:
                     new_report[metadata] = report["report_metadata"][metadata]
                 new_report["published_policy"] = report["policy_published"]
@@ -123,7 +125,7 @@ class HECClient:
         try:
             response = self.session.post(self.url, data=json_str, timeout=self.timeout).json()
         except Exception as e:
-            raise SplunkError(e)
+            raise SplunkError(e) from e
         if response["code"] != 0:
             raise SplunkError(response["text"])
         return
@@ -158,7 +160,7 @@ class HECClient:
         try:
             response = self.session.post(self.url, data=json_str, timeout=self.timeout).json()
         except Exception as e:
-            raise SplunkError(e)
+            raise SplunkError(e) from e
         if response["code"] != 0:
             raise SplunkError(response["text"])
         return

@@ -46,11 +46,11 @@ class KafkaClient:
             When using Azure Event Hubs, the `username` is literally `$ConnectionString`, and the `password` is the
             Azure Event Hub connection string.
         """
-        config = dict(
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-            bootstrap_servers=kafka_hosts,
-            client_id=f"parsedmarc-{__version__}",
-        )
+        config = {
+            "value_serializer": lambda v: json.dumps(v).encode("utf-8"),
+            "bootstrap_servers": kafka_hosts,
+            "client_id": "parsedmarc-{__version__}",
+        }
         if ssl or username or password:
             config["security_protocol"] = "SSL"
             config["ssl_context"] = ssl_context or create_default_context()
@@ -59,8 +59,8 @@ class KafkaClient:
                 config["sasl_plain_password"] = password or ""
         try:
             self.producer = KafkaProducer(**config)
-        except NoBrokersAvailable:
-            raise KafkaError("No Kafka brokers available")
+        except NoBrokersAvailable as e:
+            raise KafkaError("No Kafka brokers available") from e
 
     @staticmethod
     def strip_metadata(report):
@@ -108,32 +108,29 @@ class KafkaClient:
         if isinstance(aggregate_reports, AggregateReport):
             aggregate_reports = [aggregate_reports]
 
-        if not aggregate_reports:
-            return
-
         for _report in aggregate_reports:
             report = _report.data.copy()
             report["date_range"] = self.generate_daterange(report)
             report = self.strip_metadata(report)
 
-            for slice in report["records"]:
-                slice["date_range"] = report["date_range"]
-                slice["org_name"] = report["org_name"]
-                slice["org_email"] = report["org_email"]
-                slice["policy_published"] = report["policy_published"]
-                slice["report_id"] = report["report_id"]
+            for slice_ in report["records"]:
+                slice_["date_range"] = report["date_range"]
+                slice_["org_name"] = report["org_name"]
+                slice_["org_email"] = report["org_email"]
+                slice_["policy_published"] = report["policy_published"]
+                slice_["report_id"] = report["report_id"]
                 logger.debug("Sending slice.")
                 try:
                     logger.debug("Saving aggregate report to Kafka")
-                    self.producer.send(aggregate_topic, slice)
-                except UnknownTopicOrPartitionError:
+                    self.producer.send(aggregate_topic, slice_)
+                except UnknownTopicOrPartitionError:  # pylint: disable=raise-missing-from
                     raise KafkaError("Unknown topic or partition on broker")
                 except Exception as e:
-                    raise KafkaError(e)
+                    raise KafkaError(e) from e
                 try:
                     self.producer.flush()
                 except Exception as e:
-                    raise KafkaError(e)
+                    raise KafkaError(e) from e
         return
 
     def save_forensic_reports_to_kafka(

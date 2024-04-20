@@ -255,16 +255,12 @@ class MSGraphConnection(MailboxConnection):
                 folder_id = self._find_folder_id_with_parent(folder, parent_folder_id)
                 parent_folder_id = folder_id
             return self._find_folder_id_with_parent(path_parts[-1], parent_folder_id)
-        else:
-            return self._find_folder_id_with_parent(folder_name, None)
+        return self._find_folder_id_with_parent(folder_name, None)
 
     def _find_folder_id_with_parent(self, folder_name: str, parent_folder_id: str | None):
-        sub_url = ""
-        if parent_folder_id is not None:
-            sub_url = f"/{parent_folder_id}/childFolders"
-        url = f"/users/{self.mailbox_name}/mailFolders{sub_url}"
-        filter = f"?$filter=displayName eq '{folder_name}'"
-        folders_resp = self._client.get(url + filter)
+        sub_url = f"/{parent_folder_id}/childFolders" if parent_folder_id is not None else ""
+        url = f"/users/{self.mailbox_name}/mailFolders{sub_url}?$filter=displayName eq '{folder_name}'"
+        folders_resp = self._client.get(url)
         if folders_resp.status_code != 200:
             raise RuntimeWarning(f"Failed to list folders. {folders_resp.json()}")
         folders: list = folders_resp.json()["value"]

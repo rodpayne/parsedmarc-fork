@@ -5,22 +5,19 @@ These Sources are not intended to be used in production.
 
 ### IMPORTS
 ### ============================================================================
-## Future
+# Future
 from __future__ import annotations
 
-## Standard Library
+# Standard Library
 from copy import deepcopy
 import random
 import time
 from typing import Any
 import uuid
 
-## Installed
-
-## Application
-from .base import Source, SourceState, BaseConfig, Job
-
-from ..reports import Report, AggregateReport, ForensicReport
+# Local
+from ..report import AggregateReport, ForensicReport, Report
+from .base import BaseConfig, Job, Source, SourceState
 
 
 ### CLASSES

@@ -13,7 +13,7 @@ from io import BytesIO
 import json
 import re
 from typing import Any, BinaryIO, Callable, cast
-import xml.parsers.expat as expat
+from xml.parsers import expat
 
 # Installed
 from expiringdict import ExpiringDict
@@ -23,7 +23,7 @@ import xmltodict
 
 # Package
 from parsedmarc.log import logger
-from parsedmarc.reports import AggregateReport, ForensicReport, Report
+from parsedmarc.report import AggregateReport, ForensicReport, Report
 from parsedmarc.utils import (
     MAGIC_GZIP,
     MAGIC_XML,
@@ -34,6 +34,7 @@ from parsedmarc.utils import (
     get_ip_address_info,
     human_timestamp_to_datetime,
     is_outlook_msg,
+    load_bytes_from_source,
     parse_email,
     timestamp_to_human,
 )
@@ -135,7 +136,7 @@ class ReportParser:
             msg = email.message_from_string(source)
 
         except Exception as e:
-            raise InvalidDMARCReport(e.__str__())
+            raise InvalidDMARCReport(repr(e)) from e
         subject = None
         feedback_report = None
         sample = None
@@ -148,13 +149,13 @@ class ReportParser:
             payload = part.get_payload()
             if not isinstance(payload, list):
                 payload = [payload]
-            payload = payload[0].__str__()
+            payload = str(payload[0])
             if content_type == "message/feedback-report":
                 try:
                     if "Feedback-Type" in payload:
                         feedback_report = payload
                     else:
-                        feedback_report = b64decode(payload).__str__()
+                        feedback_report = str(b64decode(payload))
                     feedback_report = feedback_report.lstrip("b'").rstrip("'")
                     feedback_report = feedback_report.replace("\\r", "")
                     feedback_report = feedback_report.replace("\\n", "\n")
@@ -168,14 +169,12 @@ class ReportParser:
             elif content_type == "text/plain":
                 if "A message claiming to be from you has failed" in payload:
                     parts = payload.split("detected.")
-                    field_matches = TEXT_REPORT_REGEX.findall(parts[0])
-                    fields = dict()
-                    for match in field_matches:
-                        field_name = match[0].lower().replace(" ", "-")
-                        fields[field_name] = match[1].strip()
+                    fields = {
+                        match[0].lower().replace(" ", "-"): match[1].strip()
+                        for match in TEXT_REPORT_REGEX.findall(parts[0])
+                    }
                     feedback_report = f"Arrival-Date: {fields['received-date']}\nSource-IP: {fields['sender-ip-address']}"  # noqa: E501
-                    sample = parts[1].lstrip()
-                    sample = sample.replace("=\r\n", "")
+                    sample = parts[1].lstrip().replace("=\r\n", "")
                     logger.debug(sample)
             else:
                 try:
@@ -196,11 +195,11 @@ class ReportParser:
 
                 except InvalidAggregateReport as e:
                     error = f"Message with subject {subject!r} is not a valid aggregate DMARC report: {e!r}"
-                    raise InvalidAggregateReport(error)
+                    raise InvalidAggregateReport(error) from e
 
                 except Exception as e:
                     error = f"Unable to parse message with subject {subject!r}: {e!r}"
-                    raise InvalidDMARCReport(error)
+                    raise InvalidDMARCReport(error) from e
 
         if feedback_report and sample:
             try:
@@ -213,14 +212,13 @@ class ReportParser:
                 error = (
                     f"Message with subject {subject!r} is not a valid forensic DMARC report: {e!r}"
                 )
-                raise InvalidForensicReport(error)
+                raise InvalidForensicReport(error) from e
             except Exception as e:
-                raise InvalidForensicReport(repr(e))
+                raise InvalidForensicReport(repr(e)) from e
 
             return forensic_report
 
-        error = f"Message with subject {subject!r} is not a valid DMARC report"
-        raise InvalidDMARCReport(error)
+        raise InvalidDMARCReport(f"Message with subject {subject!r} is not a valid DMARC report")
 
     def parse_report_file(
         self,
@@ -236,17 +234,10 @@ class ReportParser:
         Returns:
             The parsed DMARC report
         """
-        file_object: BinaryIO
         if isinstance(source, str):
             logger.debug(f"Parsing {source}")
-            file_object = open(source, "rb")
-        elif isinstance(source, bytes):
-            file_object = BytesIO(source)
-        else:
-            file_object = source
 
-        content = file_object.read()
-        file_object.close()
+        content = load_bytes_from_source(source)
 
         report: Report
 
@@ -260,6 +251,8 @@ class ReportParser:
                     keep_alive,
                 )
             except InvalidDMARCReport:
+                # pylint: disable=raise-missing-from
+                # We want to overwrite the message here.
                 raise InvalidDMARCReport("Not a valid aggregate or forensic report")
         return report
 
@@ -282,7 +275,7 @@ class ReportParser:
         try:
             xml = extract_xml(source)
         except ValueError as e:
-            raise InvalidAggregateReport(repr(e))
+            raise InvalidAggregateReport(repr(e)) from e
 
         return self.parse_aggregate_report_xml(xml, keep_alive=keep_alive)
 
@@ -345,9 +338,7 @@ class ReportParser:
                 )
             new_report_metadata["org_name"] = org_name
             new_report_metadata["org_email"] = report_metadata["email"]
-            extra = None
-            if "extra_contact_info" in report_metadata:
-                extra = report_metadata["extra_contact_info"]
+            extra = report_metadata.get("extra_contact_info")
             new_report_metadata["org_extra_contact_info"] = extra
             new_report_metadata["report_id"] = report_metadata["report_id"]
             report_id = new_report_metadata["report_id"]
@@ -355,8 +346,7 @@ class ReportParser:
             new_report_metadata["report_id"] = report_id
             date_range = report["report_metadata"]["date_range"]
             if int(date_range["end"]) - int(date_range["begin"]) > 2 * 86400:
-                _error = "Timespan > 24 hours - RFC 7489 section 7.2"
-                errors.append(_error)
+                errors.append("Timespan > 24 hours - RFC 7489 section 7.2")
             date_range["begin"] = timestamp_to_human(date_range["begin"])
             date_range["end"] = timestamp_to_human(date_range["end"])
             new_report_metadata["begin_date"] = date_range["begin"]
@@ -400,7 +390,7 @@ class ReportParser:
             new_policy_published["fo"] = fo
             new_report["policy_published"] = new_policy_published
 
-            if type(report["record"]) is list:
+            if isinstance(report["record"], list):
                 record_count = len(report["record"])
                 for i in range(record_count):
                     if keep_alive is not None and i > 0 and i % 20 == 0:
@@ -419,15 +409,16 @@ class ReportParser:
             return AggregateReport(new_report)
 
         except expat.ExpatError as error:
-            raise InvalidAggregateReport(f"Invalid XML: {error!r}")
+            raise InvalidAggregateReport(f"Invalid XML: {error!r}") from error
 
         except KeyError as error:
-            raise InvalidAggregateReport(f"Missing field: {error!r}")
-        except AttributeError:
-            raise InvalidAggregateReport("Report missing required section")
+            raise InvalidAggregateReport(f"Missing field: {error!r}") from error
+
+        except AttributeError as error:
+            raise InvalidAggregateReport("Report missing required section") from error
 
         except Exception as error:
-            raise InvalidAggregateReport(f"Unexpected error: {error!r}")
+            raise InvalidAggregateReport(f"Unexpected error: {error!r}") from error
 
     def _parse_aggregate_report_record(self, record: dict) -> dict:
         """Convert a record from a DMARC aggregate report into a more consistent format
@@ -478,7 +469,7 @@ class ReportParser:
         new_record["alignment"]["dkim"] = dkim_aligned
         new_record["alignment"]["dmarc"] = dmarc_aligned
         if "reason" in policy_evaluated:
-            if type(policy_evaluated["reason"]) is list:
+            if isinstance(policy_evaluated["reason"], list):
                 reasons = policy_evaluated["reason"]
             else:
                 reasons = [policy_evaluated["reason"]]
@@ -492,7 +483,7 @@ class ReportParser:
         else:
             new_record["identifiers"] = record["identifiers"].copy()
         new_record["auth_results"] = {"dkim": [], "spf": []}
-        if type(new_record["identifiers"]["header_from"]) is str:
+        if isinstance(new_record["identifiers"]["header_from"], str):
             lowered_from = new_record["identifiers"]["header_from"].lower()
         else:
             lowered_from = ""
@@ -672,7 +663,7 @@ class ReportParser:
             return ForensicReport(parsed_report)
 
         except KeyError as error:
-            raise InvalidForensicReport(f"Missing value: {error!r}")
+            raise InvalidForensicReport(f"Missing value: {error!r}") from error
 
         except Exception as error:
-            raise InvalidForensicReport(f"Unexpected error: {error!r}")
+            raise InvalidForensicReport(f"Unexpected error: {error!r}") from error

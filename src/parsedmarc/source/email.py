@@ -1,19 +1,17 @@
 ### IMPORTS
 ### ============================================================================
-## Future
+# Future
 from __future__ import annotations
 
-## Standard Library
+# Standard Library
 from collections import deque
 import time
 from typing import Literal
 
-## Installed
-
-## Application
-from .base import Source, SourceState, BaseConfig, Job, JobStatus
-from ..parser import InvalidDMARCReport
+# Local
 from .. import mail
+from ..parser import InvalidDMARCReport
+from .base import BaseConfig, Job, JobStatus, Source, SourceState
 
 
 ### CLASSES
@@ -89,14 +87,14 @@ class MailboxConnectionSource(Source):
                 self.debug(f"Deleting processed message: {message_id}")
                 self.mailbox.delete_message(message_id)
 
-        elif status == JobStatus.CANCELLED or status == JobStatus.ERROR:
+        elif status in {JobStatus.CANCELLED, JobStatus.ERROR}:
             # Do nothing - we want it to stay so we can try get it again next time.
             pass
 
         else:
             raise NotImplementedError(f"{self.__class__.__name__} does not support {status=}")
 
-        super().ack_job()
+        super().ack_job(job, status)
         return
 
 

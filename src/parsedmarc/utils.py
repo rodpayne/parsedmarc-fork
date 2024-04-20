@@ -44,7 +44,6 @@ MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
 
 parenthesis_regex = re.compile(r"\s*\(.*\)\s*")
 
-null_file = open(os.devnull, "w")
 mailparser_logger = logging.getLogger("mailparser")
 mailparser_logger.setLevel(logging.CRITICAL)
 
@@ -270,7 +269,7 @@ def get_ip_address_country(ip_address: str, db_path: str | None = None) -> str |
         "/var/lib/GeoIP/GeoLite2-Country.mmdb",
         "/var/local/lib/GeoIP/GeoLite2-Country.mmdb",
         "/usr/local/var/GeoIP/GeoLite2-Country.mmdb",
-        "%SystemDrive%\\ProgramData\\MaxMind\\GeoIPUpdate\\GeoIP\\" "GeoLite2-Country.mmdb",
+        "%SystemDrive%\\ProgramData\\MaxMind\\GeoIPUpdate\\GeoIP\\GeoLite2-Country.mmdb",
         "C:\\GeoIP\\GeoLite2-Country.mmdb",
         "dbip-country-lite.mmdb",
         "dbip-country.mmdb",
@@ -291,6 +290,8 @@ def get_ip_address_country(ip_address: str, db_path: str | None = None) -> str |
                 break
 
     if db_path is None:
+        # pylint: disable=deprecated-method
+        # path is deprecated in 3.11, it's replacement, as_file only available in 3.9+
         with importlib.resources.path(parsedmarc.resources.dbip, "dbip-country-lite.mmdb") as path:
             db_path = str(path)
 
@@ -411,7 +412,7 @@ def is_mbox(path: str) -> bool:
         mbox = mailbox.mbox(path)
         if len(mbox.keys()) > 0:
             _is_mbox = True
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.debug(f"Error checking for MBOX file: {e!r}")
 
     return _is_mbox
@@ -448,11 +449,13 @@ def convert_outlook_msg(msg_bytes: bytes) -> bytes:
     with open("sample.msg", "wb") as msg_file:
         msg_file.write(msg_bytes)
     try:
-        subprocess.check_call(["msgconvert", "sample.msg"], stdout=null_file, stderr=null_file)
-        eml_path = "sample.eml"
-        with open(eml_path, "rb") as eml_file:
+        subprocess.check_call(
+            ["msgconvert", "sample.msg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        with open("sample.eml", "rb") as eml_file:
             rfc822 = eml_file.read()
     except FileNotFoundError:
+        # pylint: disable=raise-missing-from
         raise EmailParserError("Failed to convert Outlook MSG: msgconvert utility not found")
     finally:
         os.chdir(orig_dir)
@@ -502,32 +505,11 @@ def parse_email(data: bytes | str, strip_attachment_payloads: bool = False) -> d
         parsed_email["date"] = parsed_email["date"].replace("T", " ")
     else:
         parsed_email["date"] = None
-    if "reply_to" in parsed_email:
-        parsed_email["reply_to"] = list(
-            map(lambda x: parse_email_address(x), parsed_email["reply_to"])
-        )
-    else:
-        parsed_email["reply_to"] = []
 
-    if "to" in parsed_email:
-        parsed_email["to"] = list(map(lambda x: parse_email_address(x), parsed_email["to"]))
-    else:
-        parsed_email["to"] = []
-
-    if "cc" in parsed_email:
-        parsed_email["cc"] = list(map(lambda x: parse_email_address(x), parsed_email["cc"]))
-    else:
-        parsed_email["cc"] = []
-
-    if "bcc" in parsed_email:
-        parsed_email["bcc"] = list(map(lambda x: parse_email_address(x), parsed_email["bcc"]))
-    else:
-        parsed_email["bcc"] = []
-
-    if "delivered_to" in parsed_email:
-        parsed_email["delivered_to"] = list(
-            map(lambda x: parse_email_address(x), parsed_email["delivered_to"])
-        )
+    for email_field in ["reply_to", "to", "cc", "bcc", "delivered_to"]:
+        parsed_email[email_field] = [
+            parse_email_address(email) for email in parsed_email.get(email_field, [])
+        ]
 
     if "attachments" not in parsed_email:
         parsed_email["attachments"] = []
@@ -542,7 +524,7 @@ def parse_email(data: bytes | str, strip_attachment_payloads: bool = False) -> d
                         else:
                             payload = str.encode(payload)
                     attachment["sha256"] = hashlib.sha256(payload).hexdigest()
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-exception-caught
                     logger.debug(f"Unable to decode attachment: {e!r}")
         if strip_attachment_payloads:
             for attachment in parsed_email["attachments"]:
@@ -598,19 +580,31 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
 
         file_object.close()
 
-    except FileNotFoundError:
-        # raise InvalidAggregateReport("File was not found")
-        raise ValueError("File was not found")
-    except UnicodeDecodeError:
+    except UnicodeDecodeError:  # pylint: disable=raise-missing-from
         file_object.close()
-        # raise InvalidAggregateReport("File objects must be opened in binary (rb) mode")
         raise ValueError("File objects must be opened in binary (rb) mode")
     except Exception as error:
         file_object.close()
-        # raise InvalidAggregateReport(f"Invalid archive file: {error!r}")
-        raise ValueError(f"Invalid archive file: {error!r}")
+        raise ValueError(f"Invalid archive file: {error!r}") from error
 
     return xml
+
+
+def load_bytes_from_source(source: str | bytes | BinaryIO):
+    """Load bytes from source.
+
+    Args:
+        source: A path to a file, a file like object, or bytes.
+    """
+    if isinstance(source, bytes):
+        return source
+    if isinstance(source, str):
+        with open(source, "rb") as f:
+            return f.read()
+    if isinstance(source, BinaryIO):
+        source.seek(0)
+        return source.read()
+    raise ValueError(f"Unsupported source: {type(source)}")
 
 
 class MboxIterator:
