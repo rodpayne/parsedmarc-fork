@@ -47,7 +47,7 @@ jobs:
     - name: Check code style
       run: |
         black src tests --check --diff
-        isort --check --diff
+        isort src tests --check --diff
         pylint src tests
     - name: Run unit tests
       run: |
