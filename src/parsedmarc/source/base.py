@@ -15,6 +15,7 @@ from pillar.logging import LoggingMixin, get_logger_name_for_instance
 from pydantic import BaseModel
 
 # Local
+from ..const import AppState
 from ..parser import ReportParser
 from ..report import Report
 
@@ -25,15 +26,6 @@ class JobStatus(enum.Enum):
     SUCCESS = enum.auto()
     ERROR = enum.auto()
     CANCELLED = enum.auto()
-
-
-class SourceState(enum.Enum):
-    SHUTDOWN = enum.auto()
-    RUNNING = enum.auto()
-    SHUTTING_DOWN = enum.auto()
-    SHUTDOWN_ERROR = enum.auto()
-    SETTING_UP = enum.auto()
-    SETUP_ERROR = enum.auto()
 
 
 ### CLASSES
@@ -67,7 +59,7 @@ class Source(LoggingMixin):
         config_class = get_type_hints(self.__class__)["config"]
         self.config = config_class(**config)
 
-        self._state: SourceState = SourceState.SHUTDOWN
+        self._state: AppState = AppState.SHUTDOWN
 
         self._outstanding_jobs: dict[str, Job] = {}
 
@@ -81,7 +73,7 @@ class Source(LoggingMixin):
         return repr(self)
 
     @property
-    def state(self) -> SourceState:
+    def state(self) -> AppState:
         """Read only Source state"""
         return self._state
 
@@ -104,15 +96,15 @@ class Source(LoggingMixin):
         Child classes can override this method to implement their own logic.
 
         Child classes should:
-          - check that `self._state == SourceState.SHUTDOWN`
-          - set `self._state = SourceState.SETTING_UP`
+          - check that `self._state == AppState.SHUTDOWN`
+          - set `self._state = AppState.SETTING_UP`
           - do their setup actions
-          - if an error occurs set `self._state = SourceState.SETUP_ERROR`
-          - otherwise set `self._state = SourceState.RUNNING`
+          - if an error occurs set `self._state = AppState.SETUP_ERROR`
+          - otherwise set `self._state = AppState.RUNNING`
         """
-        if self._state != SourceState.SHUTDOWN:
+        if self._state != AppState.SHUTDOWN:
             raise RuntimeError("Source is already running")
-        self._state = SourceState.RUNNING
+        self._state = AppState.RUNNING
         return
 
     def cleanup(self) -> None:
@@ -123,7 +115,7 @@ class Source(LoggingMixin):
         Child classes can override this method to implement their own logic.
         It is still recomended to call `super().cleanup()`.
         """
-        if self._state != SourceState.SHUTTING_DOWN:
+        if self._state != AppState.SHUTTING_DOWN:
             raise RuntimeError("Source is not shutting_down")
         return
 
@@ -137,25 +129,25 @@ class Source(LoggingMixin):
         # pylint: disable=unused-argument
         # timeout, force known unused.
 
-        if self._state != SourceState.RUNNING:
+        if self._state != AppState.RUNNING:
             raise RuntimeError("Source is not running")
 
-        self._state = SourceState.SHUTTING_DOWN
+        self._state = AppState.SHUTTING_DOWN
 
         # TODO: Timeout - consider using stopit package
 
         try:
             for job in list(self._outstanding_jobs.values()):
-                self.debug("Cancelling job: {job.identifier}")
+                self.debug(f"Cancelling job: {job.identifier}")
                 self.ack_job(job, JobStatus.CANCELLED)
 
             self.debug("Finished cancelling jobs, cleaning up")
             self.cleanup()
         except Exception:
-            self._state = SourceState.SHUTDOWN_ERROR
+            self._state = AppState.SHUTDOWN_ERROR
             raise
 
-        self._state = SourceState.SHUTDOWN
+        self._state = AppState.SHUTDOWN
         return
 
     ## Jobs Mode
@@ -180,7 +172,7 @@ class Source(LoggingMixin):
         Args:
             job: the job to register
         """
-        if self._state != SourceState.RUNNING:
+        if self._state != AppState.RUNNING:
             raise RuntimeError("Source is not running")
 
         if job.identifier in self._outstanding_jobs:
@@ -201,7 +193,7 @@ class Source(LoggingMixin):
             job: the job to acknowledge
             status: indicates how the job was processed
         """
-        if self._state != SourceState.RUNNING:
+        if self._state not in {AppState.RUNNING, AppState.SHUTTING_DOWN}:
             raise RuntimeError("Source is not running")
 
         self.debug(f"Acknowledged job: {job.identifier} ({status})")

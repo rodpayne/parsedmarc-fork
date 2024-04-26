@@ -22,12 +22,10 @@ import mailparser
 import xmltodict
 
 # Package
+from parsedmarc import const
 from parsedmarc.log import logger
 from parsedmarc.report import AggregateReport, ForensicReport, Report
 from parsedmarc.utils import (
-    MAGIC_GZIP,
-    MAGIC_XML,
-    MAGIC_ZIP,
     convert_outlook_msg,
     extract_xml,
     get_base_domain,
@@ -180,9 +178,9 @@ class ReportParser:
                 try:
                     payload = b64decode(payload)
                     if (
-                        payload.startswith(MAGIC_ZIP)
-                        or payload.startswith(MAGIC_GZIP)
-                        or payload.startswith(MAGIC_XML)
+                        payload.startswith(const.MAGIC_ZIP)
+                        or payload.startswith(const.MAGIC_GZIP)
+                        or payload.startswith(const.MAGIC_XML)
                     ):
                         aggregate_report = self.parse_aggregate_report_file(
                             payload,

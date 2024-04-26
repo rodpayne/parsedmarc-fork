@@ -36,11 +36,8 @@ import publicsuffixlist
 
 # Package
 from parsedmarc.log import logger
+from parsedmarc import const
 import parsedmarc.resources.dbip
-
-MAGIC_ZIP = b"\x50\x4B\x03\x04"
-MAGIC_GZIP = b"\x1F\x8B"
-MAGIC_XML = b"\x3c\x3f\x78\x6d\x6c\x20"
 
 parenthesis_regex = re.compile(r"\s*\(.*\)\s*")
 
@@ -563,14 +560,14 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
         header = file_object.read(6)
         file_object.seek(0)
 
-        if header.startswith(MAGIC_ZIP):
+        if header.startswith(const.MAGIC_ZIP):
             _zip = zipfile.ZipFile(file_object)
             xml = _zip.open(_zip.namelist()[0]).read().decode(errors="ignore")
 
-        elif header.startswith(MAGIC_GZIP):
+        elif header.startswith(const.MAGIC_GZIP):
             xml = zlib.decompress(file_object.read(), zlib.MAX_WBITS | 16).decode(errors="ignore")
 
-        elif header.startswith(MAGIC_XML):
+        elif header.startswith(const.MAGIC_XML):
             xml = file_object.read().decode(errors="ignore")
 
         else:

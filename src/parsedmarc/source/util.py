@@ -17,7 +17,8 @@ import uuid
 
 # Local
 from ..report import AggregateReport, ForensicReport, Report
-from .base import BaseConfig, Job, Source, SourceState
+from .base import BaseConfig, Job, Source
+from ..const import AppState
 
 
 ### CLASSES
@@ -33,7 +34,7 @@ class UtilitySource(Source):
     config: UtilityConfig
 
     def get_job(self) -> Job:
-        if self._state != SourceState.RUNNING:
+        if self._state != AppState.RUNNING:
             raise RuntimeError("Source is not running")
 
         self.sleep()

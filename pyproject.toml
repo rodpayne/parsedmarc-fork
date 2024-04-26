@@ -109,6 +109,7 @@ docs = [
 
 [project.scripts]
 parsedmarc = "parsedmarc.cli:_main"
+parsedmarcd = "parsedmarc.application:main"
 
 [project.urls]
 Homepage = "https://domainaware.github.io/parsedmarc"
