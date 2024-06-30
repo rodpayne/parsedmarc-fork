@@ -682,6 +682,7 @@ def get_report_zip(results: SortedReportContainer) -> bytes:
     tmp_dir_zip = tempfile.mkdtemp()
     try:
         save_output(results, tmp_dir)
+        # https://stackoverflow.com/a/25650295/12281814
         shutil.make_archive(os.path.join(tmp_dir_zip, "archive"), "zip", tmp_dir)
         with open(os.path.join(tmp_dir_zip, "archive.zip"), "rb") as f:
             data = f.read()
