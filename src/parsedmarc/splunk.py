@@ -62,7 +62,7 @@ class HECClient:
         self.session = requests.Session()
         self.timeout = timeout
         self.session.verify = verify
-        self._common_data = {
+        self._common_data: dict[str, Any] = {
             "host": self.host,
             "source": self.source,
             "index": self.index,

@@ -227,7 +227,7 @@ class ElasticsearchClient:
             conn_params["http_auth"] = username + ":" + password
         if api_key:
             conn_params["api_key"] = api_key
-        self.client = Elasticsearch(**conn_params)
+        self.client = Elasticsearch(**conn_params)  # type: ignore[arg-type]
 
         ## Other settings
         self.aggregate_index_base = "dmarc_aggregate"

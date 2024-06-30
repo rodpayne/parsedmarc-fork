@@ -1,6 +1,9 @@
 # Future
 from __future__ import annotations
 
+# Standard Library
+from typing import Any
+
 # Installed
 from azure.core.exceptions import HttpResponseError
 from azure.identity import ClientSecretCredential
@@ -58,7 +61,7 @@ class LogAnalyticsClient:
         self.logs_client = LogsIngestionClient(dce, credential=self._credential)
         return
 
-    def _publish_json(self, reports: list[dict], dcr_stream: str) -> None:
+    def _publish_json(self, reports: list[dict[str, Any]], dcr_stream: str) -> None:
         """Publish DMARC reports to the given Data Collection Rule.
 
         Args:
@@ -67,7 +70,7 @@ class LogAnalyticsClient:
             dcr_stream: The stream name where the DMARC reports needs to be pushed.
         """
         try:
-            self.logs_client.upload(self.dcr_immutable_id, dcr_stream, reports)  # type: ignore[attr-defined]
+            self.logs_client.upload(self.dcr_immutable_id, dcr_stream, reports)  # type: ignore[arg-type]
         except HttpResponseError as e:
             raise LogAnalyticsException(f"Upload failed: {e!r}") from e
         return

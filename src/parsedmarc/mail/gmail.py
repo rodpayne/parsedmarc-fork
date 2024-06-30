@@ -17,6 +17,7 @@ from googleapiclient.errors import HttpError
 
 if TYPE_CHECKING:
     # https://github.com/henribru/google-api-python-client-stubs?tab=readme-ov-file#explicit-annotations
+    from googleapiclient._apis.gmail.v1.resources import GmailResource
     from googleapiclient._apis.gmail.v1.schemas import ModifyMessageRequest, Label
 
 # Package
@@ -49,6 +50,10 @@ class GmailConnection(MailboxConnection):
     This will support both Gmail and Google Workspace accounts.
     """
 
+    # Pylint has trouble identifying anything off self.service, silence it everywhere
+    # (yes this is lazy - no I don't care for now)
+    # pylint: disable=no-member
+
     def __init__(
         self,
         token_file: str,
@@ -68,7 +73,7 @@ class GmailConnection(MailboxConnection):
             oauth2_port:
         """
         creds = _get_creds(token_file, credentials_file, scopes, oauth2_port)
-        self.service = build("gmail", "v1", credentials=creds)
+        self.service: GmailResource = build("gmail", "v1", credentials=creds)
         self.include_spam_trash = include_spam_trash
         self.reports_label_id = self._find_label_id_for_label(reports_folder)
 

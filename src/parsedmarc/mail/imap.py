@@ -96,6 +96,6 @@ class IMAPConnection(MailboxConnection):
             except (socket.timeout, IMAPClientError):
                 logger.warning("IMAP connection timeout. Reconnecting...")
                 time.sleep(check_timeout)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 logger.warning(f"IMAP connection error. {e!r}. Reconnecting...")
                 time.sleep(check_timeout)

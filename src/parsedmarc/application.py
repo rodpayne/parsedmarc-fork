@@ -6,11 +6,12 @@ from __future__ import annotations
 # Standard Library
 from copy import deepcopy
 import importlib
+import itertools
 import logging
+import queue as q
 import threading
 import time
 from typing import Any, Sequence
-import queue as q
 
 # Installed
 import pillar.application
@@ -19,8 +20,8 @@ import pillar.logging
 # Local
 from .const import AppState
 from .parser import ReportParser
-from .source.base import Source, Job, JobStatus
 from .sink.base import Sink
+from .source.base import Job, JobStatus, Source
 
 
 ### FUNCTIONS
@@ -51,10 +52,10 @@ class StreamApplication(pillar.application.Application):
     }
 
     parser: ReportParser
-    sources: list[Source]
-    source_workers: list[SourceWorker]
-    sinks: list[Sink]
-    sink_workers: list[SinkWorker]
+    sources: Sequence[Source]
+    source_workers: Sequence[SourceWorker]
+    sinks: Sequence[Sink]
+    sink_workers: Sequence[SinkWorker]
     inbound_worker: InboundWorker
     outbound_worker: OutboundWorker
     workers: list[Worker]
@@ -209,7 +210,7 @@ class StreamApplication(pillar.application.Application):
 
         except Exception:
             self.critical("Failed to create all workers", exc_info=True)
-            self._shutdown_sources_and_sinks(self.sources + self.sinks)
+            self._shutdown_sources_and_sinks()
             return 1
 
         # Note: worker order matters here as this is the shutdown order
@@ -228,8 +229,8 @@ class StreamApplication(pillar.application.Application):
                 worker.start()
         except Exception:
             self.critical("Failed to start workers", exc_info=True)
-            self._shutdown_workers(self.workers)
-            self._shutdown_sources_and_sinks(self.sources + self.sinks)
+            self._shutdown_workers()
+            self._shutdown_sources_and_sinks()
             return 1
 
         ## Wait for shutdown
@@ -240,25 +241,31 @@ class StreamApplication(pillar.application.Application):
                 self.info("Received KeyboardInterrupt, shutting down")
                 break
 
-        self._shutdown_workers(self.workers)
-        self._shutdown_sources_and_sinks(self.sources + self.sinks)
+        self._shutdown_workers()
+        self._shutdown_sources_and_sinks()
 
         self.info("shutdown complete")
         return None
 
-    def _shutdown_sources_and_sinks(self, objects: Sequence[Source | Sink]) -> None:
+    def _shutdown_sources_and_sinks(self, objects: Sequence[Source | Sink] | None = None) -> None:
         self.debug("Shutting down sources and sinks")
+        if objects is None:
+            objects = list(itertools.chain(self.sources, self.sinks))
+
         for obj in objects:
             try:
                 self.vdebug(f"Shutting down {obj}")
                 obj.shutdown()
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 self.error(f"Failed to cleanup {obj}", exc_info=True)
                 continue
         return
 
-    def _shutdown_workers(self, workers: list[Worker]) -> None:
+    def _shutdown_workers(self, workers: Sequence[Worker] | None = None) -> None:
         self.debug("Shutting down workers")
+        if workers is None:
+            workers = self.workers
+
         for worker in workers:
             self.vdebug(f"Sending shutdown to {worker}")
             worker.set_shutdown()
@@ -325,7 +332,7 @@ class Worker(pillar.logging.LoggingMixin):
                 if not self._shutdown:
                     self.info("Worker has run out of work, shutting down")
                     self._shutdown = True
-                self.vvdebug(f"recevied shutdown, breaking loop")
+                self.debug("recevied shutdown, breaking loop")
                 break
 
         # Shutdown detected
@@ -366,6 +373,8 @@ class Worker(pillar.logging.LoggingMixin):
 # ..............................................................................
 class SourceWorker(Worker):
 
+    SLEEP_TIME = 60  # Override default as sources may not have jobs very often
+
     def __init__(self, source: Source, queue: q.Queue[Job]) -> None:
         """
         Args:
@@ -378,8 +387,7 @@ class SourceWorker(Worker):
         self._state = AppState.SHUTDOWN
 
         self.logger = logging.getLogger(
-            pillar.logging.get_logger_name_for_instance(self)
-            + f".i-{source.name}"
+            pillar.logging.get_logger_name_for_instance(self) + f".i-{source.name}"
         )
         return
 
@@ -414,7 +422,7 @@ class SourceWorker(Worker):
         except StopIteration:
             raise
 
-        except Exception as e:
+        except Exception:
             self.error("Uncaught exception", exc_info=True)
             self.record_error()
         return
@@ -440,8 +448,7 @@ class SinkWorker(Worker):
         self._state = AppState.SHUTDOWN
 
         self.logger = logging.getLogger(
-            pillar.logging.get_logger_name_for_instance(self)
-            + f".i-{sink.name}"
+            pillar.logging.get_logger_name_for_instance(self) + f".i-{sink.name}"
         )
         return
 
@@ -461,7 +468,7 @@ class SinkWorker(Worker):
 
         except q.Empty:
             if self._shutdown:
-                raise StopIteration()
+                raise StopIteration()  # pylint: disable=raise-missing-from
             self.vvdebug("No jobs available, sleeping")
             self.sleep()
             return
@@ -501,7 +508,7 @@ class InboundWorker(Worker):
 
         except q.Empty:
             if self._shutdown:
-                raise StopIteration()
+                raise StopIteration()  # pylint: disable=raise-missing-from
             self.vvdebug("No jobs available, sleeping")
             self.sleep()
             return
@@ -542,7 +549,7 @@ class OutboundWorker(Worker):
 
         except q.Empty:
             if self._shutdown:
-                raise StopIteration()
+                raise StopIteration()  # pylint: disable=raise-missing-from
             self.vvdebug("No jobs available, sleeping")
             self.sleep()
             return

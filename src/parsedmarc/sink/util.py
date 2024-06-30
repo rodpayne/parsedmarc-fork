@@ -18,8 +18,17 @@ from .base import BaseConfig, Sink
 
 ### CLASSES
 ### ============================================================================
+class Noop(Sink):
+    """Sink that does nothing"""
+
+    def process_report(self, report: Report) -> None:
+        if self._state != AppState.RUNNING:
+            raise RuntimeError("Sink is not running")
+        return
+
+
 class Console(Sink):
-    """Sink that writes reports to the console"""
+    """Sink that writes reports to the console as JSON"""
 
     config: ConsoleConfig
 
@@ -49,12 +58,15 @@ class Console(Sink):
         return
 
     def process_report(self, report: Report) -> None:
+        if self._state != AppState.RUNNING:
+            raise RuntimeError("Sink is not running")
+
         opts = 0
         if self.config.pretty:
             opts |= orjson.OPT_INDENT_2
         if self.config.sort:
             opts |= orjson.OPT_SORT_KEYS
-        print(str(orjson.dumps(report.data, option=opts)), file=self.output)
+        print(orjson.dumps(report.data, option=opts).decode("utf8"), file=self.output)
         return
 
 

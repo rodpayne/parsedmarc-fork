@@ -9,8 +9,9 @@ import pathlib
 from typing import Literal
 
 # Local
+from ..const import AppState
 from ..utils import MboxIterator
-from .base import BaseConfig, Job, Source, SourceState
+from .base import BaseConfig, Job, Source
 
 
 ### CLASSES
@@ -40,10 +41,10 @@ class DirectoriesAndFiles(Source):
     # TODO: In the future we may want to make this able to look into archives (zip, tgz, etc)
 
     def setup(self) -> None:
-        if self._state != SourceState.SHUTDOWN:
+        if self._state != AppState.SHUTDOWN:
             raise RuntimeError("Source is already running")
 
-        self._state = SourceState.SETTING_UP
+        self._state = AppState.SETTING_UP
 
         try:
             self._mbox_queue: deque[str] = deque()
@@ -73,14 +74,14 @@ class DirectoriesAndFiles(Source):
                 self.warning(f"Cannot process unknown object: {path}")
 
         except Exception:
-            self._state = SourceState.SETUP_ERROR
+            self._state = AppState.SETUP_ERROR
             raise
 
-        self._state = SourceState.RUNNING
+        self._state = AppState.RUNNING
         return
 
     def get_job(self) -> Job | None:
-        if self._state != SourceState.RUNNING:
+        if self._state != AppState.RUNNING:
             raise RuntimeError("Source is not running")
 
         ## Parse from email queue
@@ -123,7 +124,7 @@ class DirectoryWatcher(Source):
     config: DirectoryWatcherConfig
 
     def get_job(self) -> Job | None:
-        return
+        return None
 
 
 class DirectoryWatcherConfig(BaseConfig):

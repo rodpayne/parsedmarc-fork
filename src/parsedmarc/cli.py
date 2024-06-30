@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """A CLI for parsing DMARC reports"""
 
+# pylint: disable=too-many-lines
+
 # Standard Library
 from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
@@ -9,6 +11,7 @@ from itertools import repeat
 import json
 import logging
 from multiprocessing import Pool, Value
+import multiprocessing.sharedctypes
 import os
 import os.path
 from ssl import CERT_NONE, create_default_context
@@ -51,6 +54,8 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
+counter: multiprocessing.sharedctypes.Synchronized
+
 
 def _str_to_list(s):
     """Converts a comma separated string to a list"""
@@ -72,14 +77,13 @@ def cli_parse(file_path, sa, nameservers, dns_timeout, ip_db_path, offline):
     except ParserError as error:
         return error, file_path
     finally:
-        global counter
         with counter.get_lock():
             counter.value += 1
     return file_results, file_path
 
 
 def init(ctr):
-    global counter
+    global counter  # pylint: disable=global-statement
     counter = ctr
 
 
@@ -87,6 +91,7 @@ def _main():
     """Called when the module is executed"""
 
     def process_reports(reports_: SortedReportContainer):
+        # pylint: disable=possibly-used-before-assignment
 
         if not opts.silent:
             print(json.dumps(reports_.dict(), ensure_ascii=False, indent=2))
@@ -660,12 +665,12 @@ def _main():
                     "skip_certificate_verification"
                 )
             if "aggregate_topic" in kafka_config:
-                opts.kafka_aggregate = kafka_config["aggregate_topic"]
+                opts.kafka_aggregate_topic = kafka_config["aggregate_topic"]
             else:
                 logger.critical("aggregate_topic setting missing from the kafka config section")
                 sys.exit(-1)
             if "forensic_topic" in kafka_config:
-                opts.kafka_username = kafka_config["forensic_topic"]
+                opts.kafka_forensic_topic = kafka_config["forensic_topic"]
             else:
                 logger.critical("forensic_topic setting missing from the splunk_hec config section")
         if "smtp" in config.sections():
@@ -765,7 +770,8 @@ def _main():
     if opts.log_file:
         try:
             # check log file is writable
-            open(opts.log_file, "w").close()
+            with open(opts.log_file, "w", encoding="utf8"):
+                pass
             fh = logging.FileHandler(opts.log_file)
             fh.setFormatter(
                 logging.Formatter(
@@ -773,14 +779,14 @@ def _main():
                 )
             )
             logger.addHandler(fh)
-        except Exception as error:
+        except Exception as error:  # pylint: disable=broad-exception-caught
             logger.warning(f"Unable to write to log file: {error!r}")
 
     if (
         opts.imap_host is None
         and opts.graph_client_id is None
         and opts.gmail_api_credentials_file is None
-        and len(opts.file_path) == 0
+        and len(args.file_path) == 0
     ):
         logger.error("You must supply input files or a mailbox connection")
         sys.exit(1)
@@ -818,7 +824,7 @@ def _main():
                 access_key_id=opts.s3_access_key_id,
                 secret_access_key=opts.s3_secret_access_key,
             )
-        except Exception as error_:
+        except Exception as error_:  # pylint: disable=broad-exception-caught
             logger.error(f"S3 Error: {error_!r}")
 
     if opts.syslog_server:
@@ -827,7 +833,7 @@ def _main():
                 server_name=opts.syslog_server,
                 server_port=int(opts.syslog_port),
             )
-        except Exception as error_:
+        except Exception as error_:  # pylint: disable=broad-exception-caught
             logger.error(f"Syslog Error: {error_!r}")
 
     if opts.hec:
@@ -854,7 +860,7 @@ def _main():
                 password=opts.kafka_password,
                 ssl_context=ssl_context,
             )
-        except Exception as error_:
+        except Exception as error_:  # pylint: disable=broad-exception-caught
             logger.error(f"Kafka Error: {error_!r}")
 
     kafka_aggregate_topic = opts.kafka_aggregate_topic
@@ -875,32 +881,32 @@ def _main():
     for mbox_path in mbox_paths:
         file_paths.remove(mbox_path)
 
-    counter = Value("i", 0)
-    pool = Pool(opts.n_procs, initializer=init, initargs=(counter,))
-    results = pool.starmap_async(
-        cli_parse,
-        zip(
-            file_paths,
-            repeat(opts.strip_attachment_payloads),
-            repeat(opts.nameservers),
-            repeat(opts.dns_timeout),
-            repeat(opts.ip_db_path),
-            repeat(opts.offline),
-        ),
-        opts.chunk_size,
-    )
-    if sys.stdout.isatty():
-        pbar = tqdm(total=len(file_paths))
-        while not results.ready():
-            pbar.update(counter.value - pbar.n)
-            time.sleep(0.1)
-        pbar.close()
-    else:
-        while not results.ready():
-            time.sleep(0.1)
-    results = results.get()
-    pool.close()
-    pool.join()
+    counter = Value("i", 0)  # pylint: disable=redefined-outer-name
+    with Pool(opts.n_procs, initializer=init, initargs=(counter,)) as pool:
+        results = pool.starmap_async(
+            cli_parse,
+            zip(
+                file_paths,
+                repeat(opts.strip_attachment_payloads),
+                repeat(opts.nameservers),
+                repeat(opts.dns_timeout),
+                repeat(opts.ip_db_path),
+                repeat(opts.offline),
+            ),
+            opts.chunk_size,
+        )
+        if sys.stdout.isatty():
+            pbar = tqdm(total=len(file_paths))
+            while not results.ready():
+                pbar.update(counter.value - pbar.n)
+                time.sleep(0.1)
+            pbar.close()
+        else:
+            while not results.ready():
+                time.sleep(0.1)
+        results = results.get()
+        pool.close()
+        pool.join()
 
     for result in results:
         if isinstance(result[0], InvalidDMARCReport):

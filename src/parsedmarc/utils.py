@@ -35,8 +35,8 @@ import mailparser
 import publicsuffixlist
 
 # Package
-from parsedmarc.log import logger
 from parsedmarc import const
+from parsedmarc.log import logger
 import parsedmarc.resources.dbip
 
 parenthesis_regex = re.compile(r"\s*\(.*\)\s*")
@@ -472,6 +472,8 @@ def parse_email(data: bytes | str, strip_attachment_payloads: bool = False) -> d
         Parsed email data
     """
 
+    # pylint: disable=too-many-nested-blocks
+
     if isinstance(data, bytes):
         if is_outlook_msg(data):
             data = convert_outlook_msg(data)
@@ -551,7 +553,7 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
     file_object: BinaryIO
     try:
         if isinstance(source, str):
-            file_object = open(source, "rb")
+            file_object = open(source, "rb")  # pylint: disable=consider-using-with
         elif isinstance(source, bytes):
             file_object = BytesIO(source)
         else:
@@ -561,8 +563,9 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
         file_object.seek(0)
 
         if header.startswith(const.MAGIC_ZIP):
-            _zip = zipfile.ZipFile(file_object)
-            xml = _zip.open(_zip.namelist()[0]).read().decode(errors="ignore")
+            with zipfile.ZipFile(file_object) as _zip:
+                with _zip.open(_zip.namelist()[0]) as f:
+                    xml = f.read().decode(errors="ignore")
 
         elif header.startswith(const.MAGIC_GZIP):
             xml = zlib.decompress(file_object.read(), zlib.MAX_WBITS | 16).decode(errors="ignore")
@@ -571,18 +574,18 @@ def extract_xml(source: str | bytes | BinaryIO) -> str:
             xml = file_object.read().decode(errors="ignore")
 
         else:
-            file_object.close()
             # raise InvalidAggregateReport("Not a valid zip, gzip, or xml file")
             raise ValueError("Not a valid zip, gzip, or xml file")
 
-        file_object.close()
-
-    except UnicodeDecodeError:  # pylint: disable=raise-missing-from
-        file_object.close()
+    except UnicodeDecodeError:
+        # pylint: disable=raise-missing-from
         raise ValueError("File objects must be opened in binary (rb) mode")
+
     except Exception as error:
-        file_object.close()
         raise ValueError(f"Invalid archive file: {error!r}") from error
+
+    finally:
+        file_object.close()
 
     return xml
 

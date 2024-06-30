@@ -295,7 +295,7 @@ class ReportParser:
         # Parse XML and recover from errors
         try:
             xmltodict.parse(xml)["feedback"]
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             errors.append(f"Invalid XML: {e!r}")
             try:
                 tree = etree.parse(
@@ -304,7 +304,7 @@ class ReportParser:
                 )
                 s = etree.tostring(tree)
                 xml = "" if s is None else s.decode("utf-8")
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 xml = "<a/>"
 
         try:

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 # Standard Library
-import enum
 import logging
 from typing import Any, get_type_hints
 

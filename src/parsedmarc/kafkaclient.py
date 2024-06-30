@@ -123,7 +123,8 @@ class KafkaClient:
                 try:
                     logger.debug("Saving aggregate report to Kafka")
                     self.producer.send(aggregate_topic, slice_)
-                except UnknownTopicOrPartitionError:  # pylint: disable=raise-missing-from
+                except UnknownTopicOrPartitionError:
+                    # pylint: disable=raise-missing-from
                     raise KafkaError("Unknown topic or partition on broker")
                 except Exception as e:
                     raise KafkaError(e) from e
@@ -158,11 +159,12 @@ class KafkaClient:
             logger.debug("Saving forensic reports to Kafka")
             self.producer.send(forensic_topic, reports)
         except UnknownTopicOrPartitionError:
+            # pylint: disable=raise-missing-from
             raise KafkaError("Unknown topic or partition on broker")
         except Exception as e:
-            raise KafkaError(e)
+            raise KafkaError(e) from e
         try:
             self.producer.flush()
         except Exception as e:
-            raise KafkaError(e)
+            raise KafkaError(e) from e
         return

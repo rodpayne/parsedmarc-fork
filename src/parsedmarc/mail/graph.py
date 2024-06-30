@@ -31,6 +31,7 @@ from parsedmarc.mail.mailbox_connection import MailboxConnection
 
 
 class AuthMethod(Enum):
+    # pylint: disable=invalid-name
     DeviceCode = 1
     UsernamePassword = 2
     ClientSecret = 3

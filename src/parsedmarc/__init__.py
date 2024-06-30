@@ -7,13 +7,13 @@ from __future__ import annotations
 from csv import DictWriter
 from datetime import datetime
 from io import BytesIO, StringIO
+import itertools
 import json
 import mailbox
 import os
 import shutil
 import tempfile
 from typing import Any, BinaryIO, Callable
-import zipfile
 
 # Installed
 from mailsuite.smtp import send_email
@@ -140,7 +140,7 @@ def parsed_aggregate_reports_to_csv_rows(
     if isinstance(reports, AggregateReport):
         reports = [reports]
 
-    rows = [report.to_csv_rows() for report in reports]
+    rows = list(itertools.chain.from_iterable(report.to_csv_rows() for report in reports))
 
     for r in rows:
         for k, v in r.items():
@@ -678,39 +678,18 @@ def get_report_zip(results: SortedReportContainer) -> bytes:
     Returns:
         raw zip file
     """
-
-    def add_subdir(root_path, subdir):
-        subdir_path = os.path.join(root_path, subdir)
-        for subdir_root, subdir_dirs, subdir_files in os.walk(subdir_path):
-            for subdir_file in subdir_files:
-                subdir_file_path = os.path.join(root_path, subdir, subdir_file)
-                if os.path.isfile(subdir_file_path):
-                    rel_path = os.path.relpath(subdir_root, subdir_file_path)
-                    subdir_arc_name = os.path.join(rel_path, subdir_file)
-                    zip_file.write(subdir_file_path, subdir_arc_name)
-            for subdir in subdir_dirs:
-                add_subdir(subdir_path, subdir)
-
-    storage = BytesIO()
     tmp_dir = tempfile.mkdtemp()
+    tmp_dir_zip = tempfile.mkdtemp()
     try:
         save_output(results, tmp_dir)
-        with zipfile.ZipFile(storage, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for root, dirs, files in os.walk(tmp_dir):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    if os.path.isfile(file_path):
-                        arcname = os.path.join(os.path.relpath(root, tmp_dir), file)
-                        zip_file.write(file_path, arcname)
-                for directory in dirs:
-                    dir_path = os.path.join(root, directory)
-                    if os.path.isdir(dir_path):
-                        zip_file.write(dir_path, directory)
-                        add_subdir(root, directory)
+        shutil.make_archive(os.path.join(tmp_dir_zip, "archive"), "zip", tmp_dir)
+        with open(os.path.join(tmp_dir_zip, "archive.zip"), "rb") as f:
+            data = f.read()
     finally:
         shutil.rmtree(tmp_dir)
+        shutil.rmtree(tmp_dir_zip)
 
-    return storage.getvalue()
+    return data
 
 
 def email_results(

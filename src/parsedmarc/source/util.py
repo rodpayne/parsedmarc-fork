@@ -16,9 +16,9 @@ from typing import Any
 import uuid
 
 # Local
+from ..const import AppState
 from ..report import AggregateReport, ForensicReport, Report
 from .base import BaseConfig, Job, Source
-from ..const import AppState
 
 
 ### CLASSES

@@ -73,10 +73,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     ## Type Stubs
+    "boto3-stubs[s3,sqs]",
     "google-api-python-client-stubs",
     "google-auth-stubs",
     "lxml-stubs",
-    "types-boto3",
     "types-python-dateutil",
     "types-requests",
     "types-tqdm",
