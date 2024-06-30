@@ -57,4 +57,4 @@ jobs:
       continue-on-error: true
       run: |
         parsedmarc --debug -c ci.ini samples/aggregate/*
-        parsedmarc --debug -c ci.ini samples/forensic/*"
+        parsedmarc --debug -c ci.ini samples/forensic/*
