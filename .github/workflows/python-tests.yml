@@ -49,9 +49,10 @@ jobs:
         black src tests --check --diff
         isort src tests --check --diff
         pylint src tests
+        mypy src tests
     - name: Run unit tests
       run: |
-        python3 tests.py
+        pytest
     - name: Test sample DMARC reports
       continue-on-error: true
       run: |
