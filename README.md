@@ -1,44 +1,28 @@
-# parsedmarc
+# parsedmarc-fork
 
-[![Build
-Status](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml/badge.svg)](https://github.com/domainaware/parsedmarc/actions/workflows/python-tests.yml)
-[![Code
-Coverage](https://codecov.io/gh/domainaware/parsedmarc/branch/master/graph/badge.svg)](https://codecov.io/gh/domainaware/parsedmarc)
-[![PyPI
-Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project/parsedmarc/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/parsedmarc?color=blue)](https://pypistats.org/packages/parsedmarc)
+ParseDMARC-Fork (name TBD) is a tool for collecting, parsing, and storing DMARC reports.
 
-<p align="center">
-  <img src="https://github.com/domainaware/parsedmarc/raw/master/docs/source/_static/screenshots/dmarc-summary-charts.png?raw=true" alt="A screenshot of DMARC summary charts in Kibana"/>
-</p>
+### 🚨 Important 🚨
 
-`parsedmarc` is a Python module and CLI utility for parsing DMARC
-reports. When used with Elasticsearch and Kibana (or Splunk), it works
-as a self-hosted open source alternative to commercial DMARC report
-processing services such as Agari Brand Protection, Dmarcian, OnDMARC,
-ProofPoint Email Fraud Defense, and Valimail.
+This repository is a work in progress fork of [domainaware/parsedmarc](https://github.com/domainaware/parsedmarc).
 
-## Help Wanted
+## Documentation
 
-This project is maintained by one developer. Please consider
-reviewing the open
-[issues](https://github.com/domainaware/parsedmarc/issues) to see how
-you can contribute code, documentation, or user support. Assistance on
-the pinned issues would be particularly helpful.
+- [Documentation](https://nhairs.github.io/parsedmarc/latest/)
+- [Quickstart Guide](https://nhairs.github.io/parsedmarc/latest/quickstart/)
+- [Change Log](https://nhairs.github.io/parsedmarc/latest/changelog/)
+- [Contributing](https://nhairs.github.io/parsedmarc/latest/contributing/)
 
-Thanks to all
-[contributors](https://github.com/domainaware/parsedmarc/graphs/contributors)!
+## License
 
-## Features
+This project is licensed under the Apache 2.0 License - see [`LICENSE`](https://github.com/nhairs/parsedmarc/blob/fork/LICENSE).
 
-- Parses draft and 1.0 standard aggregate/rua reports
-- Parses forensic/failure/ruf reports
-- Can parse reports from an inbox over IMAP, Microsoft Graph, or Gmail
-    API
-- Transparently handles gzip or zip compressed reports
-- Consistent data structures
-- Simple JSON and/or CSV output
-- Optionally email the results
-- Optionally send the results to Elasticsearch and/or Splunk, for use
-    with premade dashboards
-- Optionally send reports to Apache Kafka
+This project includes other open source licenced software - see [`NOTICE`]((https://github.com/nhairs/parsedmarc/blob/fork/NOTICE).
+
+This project is based on [parsedmarc](https://github.com/domainaware/parsedmarc) originally authored by [Sean Whalen](https://github.com/seanthegeek) and [it's many contributors](https://github.com/domainaware/parsedmarc/graphs/contributors).
+
+## Maintainers
+
+It is currently maintained by:
+
+- [Nicholas Hairs](https://github.com/nhairs) - [nicholashairs.com](https://www.nicholashairs.com)

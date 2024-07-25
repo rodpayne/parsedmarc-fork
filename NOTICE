@@ -1,0 +1,11 @@
+This software includes the following licenced software:
+
+  - parsedmarc
+    Copyright unkown
+    Licenced under the Apache 2.0 Licence
+    Source: https://github.com/domainaware/parsedmarc
+
+  - mkdocstrings-python
+    Copyright (c) 2021, Timothée Mazzucotelli
+    Licenced under ISC Licence
+    Source: https://github.com/mkdocstrings/python
