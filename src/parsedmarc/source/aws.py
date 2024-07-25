@@ -55,6 +55,7 @@ class SimpleEmailService(Source):
         except:
             self._state = AppState.SETUP_ERROR
             raise
+        self._state = AppState.RUNNING
         return
 
     def get_job(self) -> Job | None:
@@ -148,9 +149,10 @@ class SimpleEmailService(Source):
         Args:
             message: the message to parse
         """
-        data = orjson.loads(message.body)
-        bucket = data["action"]["bucketName"]
-        key = data["action"]["objectKey"]
+        full_data = orjson.loads(orjson.loads(message.body)["Message"])
+        action_data = full_data["receipt"]["action"]
+        bucket = action_data["bucketName"]
+        key = action_data["objectKey"]
         return self._s3.Object(bucket, key)
 
     def _download_object(self, s3_object: t_s3.Object) -> BytesIO:
