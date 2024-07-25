@@ -410,7 +410,7 @@ class SourceWorker(Worker):
             job = self.source.get_job()
 
             if job is None:
-                self.vdebug("No jobs available, sleeping")
+                self.vvdebug("No jobs available, sleeping")
                 self.sleep()
                 return
 
