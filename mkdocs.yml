@@ -23,8 +23,7 @@ nav:
   - DMARC:
     - dmarc.md
     - mailing-lists.md
-  - API Reference:
-    - ... | reference/parsedmarc/*
+  - API Reference: reference/
 
 theme:
   name: material
@@ -114,6 +113,7 @@ plugins:
             summary: true
             unwrap_annotated: true
             show_source: false
+            docstring_section_style: spacy
   - literate-nav:
       nav_file: SUMMARY.txt
   - mike:
