@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 # Local
+from ..const import AppState
 from ..elastic import ElasticsearchClient
 from ..report import AggregateReport, ForensicReport
 from .base import BaseConfig, Sink
@@ -19,11 +20,23 @@ class Elasticsearch(Sink):
     config: ElasticsearchConfig
 
     def setup(self) -> None:
-        self.client = ElasticsearchClient(**self.config.client)
-        self.client.migrate_indexes()
+        if self._state != AppState.SHUTDOWN:
+            raise RuntimeError("Sink is already running")
+        self._state = AppState.SETTING_UP
+
+        try:
+            self.client = ElasticsearchClient(**self.config.client)
+            self.client.migrate_indexes()
+
+        except:
+            self._state = AppState.SETUP_ERROR
+            raise
+
+        self._state = AppState.RUNNING
         return
 
     def cleanup(self) -> None:
+        super().cleanup()
         self.client.client.close()
         return
 
