@@ -166,4 +166,3 @@ class SimpleEmailService(Source):
 class SimpleEmailServiceConfig(BaseConfig):
     session: dict[str, Any] = Field(default_factory=dict)
     queue_name: str
-    bucket_name: str  # needed?
