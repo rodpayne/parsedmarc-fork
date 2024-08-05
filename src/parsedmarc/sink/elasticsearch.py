@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 # Standard Library
-from typing import Any
+from typing import Any, Literal
 
 # Local
 from ..const import AppState
-from ..elastic import ElasticsearchClient
+from ..elastic import ElasticsearchClient, AlreadySaved
 from ..report import AggregateReport, ForensicReport
 from .base import BaseConfig, Sink
 
@@ -41,14 +41,27 @@ class Elasticsearch(Sink):
         return
 
     def process_aggregate_report(self, report: AggregateReport) -> None:
-        self.client.save_aggregate_report_to_elasticsearch(report)
+        try:
+            self.client.save_aggregate_report_to_elasticsearch(report)
+        except AlreadySaved as e:
+            if self.config.on_duplicate == "discard":
+                self.info(f"Discarding duplicate report: {e!r}")
+                return
+            raise
         return
 
     def process_forensic_report(self, report: ForensicReport) -> None:
-        self.client.save_forensic_report_to_elasticsearch(report)
+        try:
+            self.client.save_forensic_report_to_elasticsearch(report)
+        except AlreadySaved as e:
+            if self.config.on_duplicate == "discard":
+                self.info(f"Discarding duplicate report: {e!r}")
+                return
+            raise
         return
 
 
 class ElasticsearchConfig(BaseConfig):
     # As per https://elasticsearch-py.readthedocs.io/en/v8.13.0/api/elasticsearch.html
     client: dict[str, Any]
+    on_duplicate: Literal["discard"] = "discard"  # TODO: implement update logic and add
