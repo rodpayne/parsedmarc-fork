@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 # Local
 from ..const import AppState
-from ..elastic import ElasticsearchClient, AlreadySaved
+from ..elastic import AlreadySaved, ElasticsearchClient
 from ..report import AggregateReport, ForensicReport
 from .base import BaseConfig, Sink
 
