@@ -81,7 +81,7 @@ class DirectoriesAndFiles(Source):
         return
 
     def get_job(self) -> Job | None:
-        if self._state != AppState.RUNNING:
+        if self._state not in {AppState.RUNNING, AppState.SHUTTING_DOWN}:
             raise RuntimeError("Source is not running")
 
         ## Parse from email queue

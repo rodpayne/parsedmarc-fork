@@ -95,7 +95,7 @@ class SimpleEmailService(Source):
         return None
 
     def ack_job(self, job: Job, status: JobStatus) -> None:
-        if self._state != AppState.RUNNING:
+        if self._state not in {AppState.RUNNING, AppState.SHUTTING_DOWN}:
             raise RuntimeError("Source is not running")
 
         if status == JobStatus.SUCCESS:
