@@ -8,10 +8,10 @@ This repository is a work in progress fork of [domainaware/parsedmarc](https://g
 
 ## Documentation
 
-- [Documentation](https://nhairs.github.io/parsedmarc/latest/)
-- [Quickstart Guide](https://nhairs.github.io/parsedmarc/latest/quickstart/)
-- [Change Log](https://nhairs.github.io/parsedmarc/latest/changelog/)
-- [Contributing](https://nhairs.github.io/parsedmarc/latest/contributing/)
+- [Documentation](https://nhairs.github.io/parsedmarc-fork/latest/)
+- [Quickstart Guide](https://nhairs.github.io/parsedmarc-fork/latest/quickstart/)
+- [Change Log](https://nhairs.github.io/parsedmarc-fork/latest/changelog/)
+- [Contributing](https://nhairs.github.io/parsedmarc-fork/latest/contributing/)
 
 ## License
 

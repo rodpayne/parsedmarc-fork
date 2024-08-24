@@ -112,7 +112,8 @@ parsedmarc = "parsedmarc.cli:_main"
 parsedmarcd = "parsedmarc.application:main"
 
 [project.urls]
-Homepage = "https://domainaware.github.io/parsedmarc"
+Homepage = "https://nhairs.github.io/parsedmarc-fork"
+GitHub = "https://github.com/nhairs/parsedmarc-fork"
 
 [tool.hatch.version]
 path = "src/parsedmarc/__init__.py"

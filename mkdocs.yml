@@ -1,6 +1,6 @@
 site_name: "ParseDMARC"
-site_url: https://nhairs.github.io/parsedmarc
-repo_url: https://github.com/nhairs/parsedmarc
+site_url: https://nhairs.github.io/parsedmarc-fork
+repo_url: https://github.com/nhairs/parsedmarc-fork
 edit_uri: tree/docs/docs
 copyright: "Copyright &copy; Parsedmarc Contributors</a>"
 watch:
@@ -58,7 +58,7 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/nhairs/parsedmarc
+      link: https://github.com/nhairs/parsedmarc-fork
   version:
     provider: mike
 
@@ -92,8 +92,8 @@ plugins:
         python:
           paths:
             - src
-          #import:
-          #  - https://docs.python.org/3/objects.inv
+          import:
+            - https://docs.python.org/3/objects.inv
           #  - https://mkdocstrings.github.io/objects.inv
           #  - https://mkdocstrings.github.io/griffe/objects.inv
           options:
