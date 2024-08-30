@@ -1011,6 +1011,7 @@ def _main():
                 ip_db_path=opts.ip_db_path,
                 offline=opts.offline,
                 nameservers=opts.nameservers,
+                dns_timeout=opts.dns_timeout,
                 test=opts.mailbox_test,
                 strip_attachment_payloads=opts.strip_attachment_payloads,
             )
