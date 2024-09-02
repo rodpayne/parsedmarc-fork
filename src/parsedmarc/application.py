@@ -38,6 +38,8 @@ class StreamApplication(pillar.application.Application):
     """ParseDMARC application with streaming implementation.
 
     This is a fork of the original ParseDMARC project.
+
+    *New in 9.0*.
     """
 
     application_name = "parsedmarcd"
@@ -140,7 +142,11 @@ class StreamApplication(pillar.application.Application):
         for name, config in self.config["sources"].items():
             self.vdebug(f"loading source {name}")
             try:
-                self.sources.append(self.make_source(name, config))
+                source = self.make_source(name, config)
+                if source.config.enabled:
+                    self.sources.append(source)
+                else:
+                    self.debug(f"skipping disabled source {name}")
             except Exception:
                 error = True
                 self.critical(f"Failed to load source {name}", exc_info=True)
@@ -151,7 +157,11 @@ class StreamApplication(pillar.application.Application):
         for name, config in self.config["sinks"].items():
             self.vdebug(f"loading sink {name}")
             try:
-                self.sinks.append(self.make_sink(name, config))
+                sink = self.make_sink(name, config)
+                if sink.config.enabled:
+                    self.sinks.append(sink)
+                else:
+                    self.debug(f"Skipping disabled sink {name}")
             except Exception:
                 error = True
                 self.critical(f"Failed to load sink {name}", exc_info=True)
@@ -280,7 +290,10 @@ class StreamApplication(pillar.application.Application):
 ## Workers
 ## -----------------------------------------------------------------------------
 class Worker(pillar.logging.LoggingMixin):
-    """Base class for workers"""
+    """Base class for workers.
+
+    *New in 9.0*.
+    """
 
     thread: threading.Thread
     _state: AppState
@@ -372,8 +385,12 @@ class Worker(pillar.logging.LoggingMixin):
 # Source
 # ..............................................................................
 class SourceWorker(Worker):
+    """Source Worker
 
-    SLEEP_TIME = 60  # Override default as sources may not have jobs very often
+    *New in 9.0*.
+    """
+
+    SLEEP_TIME = 30  # Override default as sources may not have jobs very often
 
     def __init__(self, source: Source, queue: q.Queue[Job]) -> None:
         """
@@ -431,6 +448,10 @@ class SourceWorker(Worker):
 # Sink
 # ..............................................................................
 class SinkWorker(Worker):
+    """Sink Worker
+
+    *New in 9.0*.
+    """
 
     def __init__(
         self, sink: Sink, in_queue: q.Queue[Job], out_queue: q.Queue[tuple[Job, JobStatus]]
@@ -484,7 +505,10 @@ class SinkWorker(Worker):
 # Inbound
 # ..............................................................................
 class InboundWorker(Worker):
-    """Worker that handles passing jobs from sources to all sinks"""
+    """Worker that handles passing jobs from sources to all sinks
+
+    *New in 9.0*.
+    """
 
     def __init__(self, queue: q.Queue[Job], sink_workers: list[SinkWorker]) -> None:
         self.queue = queue
@@ -522,7 +546,10 @@ class InboundWorker(Worker):
 # Outbound
 # ..............................................................................
 class OutboundWorker(Worker):
-    """Worker than handles passing completed jobs from sinks to sources"""
+    """Worker than handles passing completed jobs from sinks to sources
+
+    *New in 9.0*.
+    """
 
     def __init__(self, sink_workers: list[SinkWorker]) -> None:
         # Current implementation only supports one SinkWorker

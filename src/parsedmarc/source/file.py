@@ -28,6 +28,8 @@ class DirectoriesAndFiles(Source):
 
     - Mailbox: `.mbox`
     - Email: `.eml`, `.msg`
+
+    *New in 9.0*.
     """
 
     config: DirectoriesAndFilesConfig
@@ -115,17 +117,22 @@ class DirectoriesAndFiles(Source):
 
 
 class DirectoriesAndFilesConfig(BaseConfig):
+    """Directories and Files Config
+
+    *New in 9.0*.
+    """
+
     paths: list[str]
 
 
 ## Watching
 ## -----------------------------------------------------------------------------
-class DirectoryWatcher(Source):
-    config: DirectoryWatcherConfig
+# class DirectoryWatcher(Source):
+#     config: DirectoryWatcherConfig
 
-    def get_job(self) -> Job | None:
-        return None
+#     def get_job(self) -> Job | None:
+#         return None
 
 
-class DirectoryWatcherConfig(BaseConfig):
-    paths: list[str]
+# class DirectoryWatcherConfig(BaseConfig):
+#     paths: list[str]

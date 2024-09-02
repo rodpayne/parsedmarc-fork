@@ -16,6 +16,10 @@ from .base import BaseConfig, Sink
 ### CLASSES
 ### ============================================================================
 class Elasticsearch(Sink):
+    """Stores reports in Elasticsearch.
+
+    *New in 9.0*.
+    """
 
     config: ElasticsearchConfig
 
@@ -62,6 +66,8 @@ class Elasticsearch(Sink):
 
 
 class ElasticsearchConfig(BaseConfig):
+    """Elasticsearch Config"""
+
     # As per https://elasticsearch-py.readthedocs.io/en/v8.13.0/api/elasticsearch.html
     client: dict[str, Any]
     on_duplicate: Literal["discard"] = "discard"  # TODO: implement update logic and add

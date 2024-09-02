@@ -21,6 +21,8 @@ class MailboxConnectionSource(Source):
     """Base class for `MailboxConnection` based sources
 
     Child classes MUST set the `self.mailbox` attribute.
+
+    *New in 9.0*.
     """
 
     config: MailboxConfig
@@ -101,6 +103,11 @@ class MailboxConnectionSource(Source):
 
 
 class MailboxConfig(BaseConfig):
+    """Mailbox Config
+
+    *New in 9.0*.
+    """
+
     reports_folder: str = "INBOX"
     archive_folder: str = "Archive"
     invalid_folder: str = "Invalid"
@@ -110,7 +117,10 @@ class MailboxConfig(BaseConfig):
 ## IMAP
 ## -----------------------------------------------------------------------------
 class Imap(MailboxConnectionSource):
-    """Source that collects emails using IMAP"""
+    """Source that collects emails using IMAP
+
+    *New in 9.0*.
+    """
 
     config: ImapConfig
 
@@ -136,6 +146,11 @@ class Imap(MailboxConnectionSource):
 
 
 class ImapConfig(MailboxConfig):
+    """IMAP Config
+
+    *New in 9.0*.
+    """
+
     host: str  # IMAP host to connect to
     username: str  # IMAP Username
     password: str  # IMAP Password
@@ -154,6 +169,8 @@ class Google(MailboxConnectionSource):
     """Source for connecting to Google accounts using the Google API.
 
     Supports both Gmail and Google Workspace accounts.
+
+    *New in 9.0*.
     """
 
     config: GoogleConfig
@@ -178,6 +195,11 @@ class Google(MailboxConnectionSource):
 
 
 class GoogleConfig(MailboxConfig):
+    """Google Config
+
+    *New in 9.0*.
+    """
+
     credentials_file: str  # Path to file containing the credentials
     token_file: str = ".google_token"  # Path to save the token file
     scopes: list[str] = [
@@ -194,7 +216,10 @@ class GoogleConfig(MailboxConfig):
 ## Microsoft Graph
 ## -----------------------------------------------------------------------------
 class MicrosoftGraph(MailboxConnectionSource):
-    """Source for connecting to Micosoft accounts using the Graph API"""
+    """Source for connecting to Micosoft accounts using the Graph API.
+
+    *New in 9.0*.
+    """
 
     config: MicrosoftGraphConfig
 
@@ -233,6 +258,11 @@ class MicrosoftGraph(MailboxConnectionSource):
 
 
 class MicrosoftGraphConfig(MailboxConfig):
+    """MicrosoftGraph Config
+
+    *New in 9.0*.
+    """
+
     auth_method: Literal["UsernamePassword", "DeviceCode", "ClientSecret"] = "UsernamePassword"
     client_id: str
     client_secret: str

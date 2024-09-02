@@ -19,7 +19,10 @@ from .base import BaseConfig, Sink
 ### CLASSES
 ### ============================================================================
 class Noop(Sink):
-    """Sink that does nothing"""
+    """Sink that does nothing.
+
+    *New in 9.0*.
+    """
 
     def process_report(self, report: Report) -> None:
         if self._state != AppState.RUNNING:
@@ -28,7 +31,10 @@ class Noop(Sink):
 
 
 class Console(Sink):
-    """Sink that writes reports to the console as JSON"""
+    """Sink that writes reports to the console as JSON.
+
+    *New in 9.0*.
+    """
 
     config: ConsoleConfig
 
@@ -71,6 +77,11 @@ class Console(Sink):
 
 
 class ConsoleConfig(BaseConfig):
+    """Console Config.
+
+    *New in 9.0*.
+    """
+
     stream: Literal["stdout", "stderr"] = "stdout"
     pretty: bool = False
     sort: bool = False

@@ -125,6 +125,18 @@ class Sink(LoggingMixin):
     ## Reports
     ## -------------------------------------------------------------------------
     def process_report(self, report: Report) -> None:
+        """Default method for processing reports.
+
+        Rather than directly processing reports, checks for methods matching a given report
+        type and if it exists passes teh report to it. If no method exists for the given report
+        does nothing.
+
+        Supported methods:
+
+        - `process_aggregate_report`
+        - `process_forensic_report`
+        """
+
         if self._state != AppState.RUNNING:
             raise RuntimeError("sink is not running")
         if isinstance(report, AggregateReport) and hasattr(self, "process_aggregate_report"):
@@ -137,4 +149,9 @@ class Sink(LoggingMixin):
 
 
 class BaseConfig(BaseModel):
-    pass
+    """Base config for all sinks.
+
+    *New in 9.0*.
+    """
+
+    enabled: bool = True

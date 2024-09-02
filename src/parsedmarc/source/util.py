@@ -29,6 +29,8 @@ class UtilitySource(Source):
     This class should not be used directly.
 
     Child classes MUST implement `self.make_report`.
+
+    *New in 9.0*.
     """
 
     config: UtilityConfig
@@ -56,6 +58,11 @@ class UtilitySource(Source):
 
 
 class UtilityConfig(BaseConfig):
+    """Utility Config
+
+    *New in 9.0*.
+    """
+
     sleep_enabled: bool = True
     sleep_time: int | None = None
     sleep_min: int | float = 0.2
@@ -63,6 +70,11 @@ class UtilityConfig(BaseConfig):
 
 
 class ReportConfig(UtilityConfig):
+    """Report Config.
+
+    *New in 9.0*.
+    """
+
     report: dict[str, Any] | None = None
 
 
@@ -77,6 +89,8 @@ class StaticAggregateReportGenerator(UtilitySource):
 
     Config:
         `report: dict[str, Any]`: static report to use instead of the default one.
+
+    *New in 9.0*.
     """
 
     config: ReportConfig
@@ -162,6 +176,8 @@ class RandomAggregateReportGenerator(UtilitySource):
 
     Note: reports are randomly generates which means that although unlikely it is
     possible that duplicate reports will be generated.
+
+    *New in 9.0*.
     """
 
     def make_report(self) -> AggregateReport:
@@ -174,6 +190,8 @@ class MalformedAggregateReportGenerator(UtilitySource):
     """Source that produces malformed `AggregateReport`s
 
     Useful for testing.
+
+    *New in 9.0*.
     """
 
     def make_report(self) -> AggregateReport:
@@ -190,6 +208,8 @@ class StaticForensicReportGenerator(UtilitySource):
 
     Config:
         `report: dict[str, Any]`: static report to use instead of the default one.
+
+    *New in 9.0*.
     """
 
     config: ReportConfig
@@ -337,6 +357,8 @@ class RandomForensicReportGenerator(UtilitySource):
 
     Note: reports are randomly generates which means that although unlikely it is
     possible that duplicate reports will be generated.
+
+    *New in 9.0*.
     """
 
     def make_report(self) -> ForensicReport:
@@ -349,6 +371,8 @@ class MalformedForensicReportGenerator(UtilitySource):
     """Source that produces malformed `ForensicReport`s
 
     Useful for testing.
+
+    *New in 9.0*.
     """
 
     def make_report(self) -> ForensicReport:
