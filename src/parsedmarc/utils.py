@@ -121,7 +121,7 @@ def query_dns(
     domain = str(domain).lower()
     record_type = record_type.upper()
     cache_key = f"{domain}_{record_type}"
-    if cache:
+    if cache is not None:
         records = cache.get(cache_key, None)
         if records:
             return records
@@ -158,7 +158,7 @@ def query_dns(
                 resolver.resolve(domain, record_type, lifetime=timeout),
             )
         )
-    if cache:
+    if cache is not None:
         cache[cache_key] = records
 
     return records
@@ -331,7 +331,7 @@ def get_ip_address_info(
 
     """
     ip_address = ip_address.lower()
-    if cache:
+    if cache is not None:
         info = cache.get(ip_address, None)
         if info:
             return info
@@ -340,7 +340,9 @@ def get_ip_address_info(
     if offline:
         reverse_dns = None
     else:
-        reverse_dns = get_reverse_dns(ip_address, nameservers=nameservers, timeout=timeout)
+        reverse_dns = get_reverse_dns(
+            ip_address, cache=cache, nameservers=nameservers, timeout=timeout
+        )
     country = get_ip_address_country(ip_address, db_path=ip_db_path)
     info["country"] = country
     info["reverse_dns"] = reverse_dns
