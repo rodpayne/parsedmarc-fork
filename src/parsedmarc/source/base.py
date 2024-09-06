@@ -23,6 +23,11 @@ from ..report import Report
 ### CONSTANTS
 ### ============================================================================
 class JobStatus(enum.Enum):
+    """Job Status
+
+    *New in 9.0*.
+    """
+
     SUCCESS = enum.auto()
     ERROR = enum.auto()
     CANCELLED = enum.auto()
@@ -205,7 +210,12 @@ class Source(LoggingMixin):
 
 
 class BaseConfig(BaseModel):  # pylint: disable=too-few-public-methods
-    pass
+    """Base Config for all sources.
+
+    *New in 9.0*.
+    """
+
+    enabled: bool = True
 
 
 ## ReportJob

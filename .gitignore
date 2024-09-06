@@ -134,3 +134,6 @@ samples/private
 
 *.html
 *.sqlite-journal
+
+# common for local testing to have config dir
+config/

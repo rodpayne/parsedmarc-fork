@@ -1,7 +1,7 @@
-site_name: "ParseDMARC"
+site_name: "ParseDMARC Fork"
 site_url: https://nhairs.github.io/parsedmarc-fork
 repo_url: https://github.com/nhairs/parsedmarc-fork
-edit_uri: tree/docs/docs
+edit_uri: tree/main/docs
 copyright: "Copyright &copy; Parsedmarc Contributors</a>"
 watch:
   - mkdocs.yml

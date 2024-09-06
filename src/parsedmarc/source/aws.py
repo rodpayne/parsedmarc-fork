@@ -37,6 +37,7 @@ class SimpleEmailService(Source):
     - https://docs.aws.amazon.com/ses/latest/dg/receiving-email.html
     - https://docs.aws.amazon.com/ses/latest/dg/receiving-email-notifications-examples.html
 
+    *New in 9.0*.
     """
 
     config: SimpleEmailServiceConfig
@@ -164,5 +165,10 @@ class SimpleEmailService(Source):
 
 
 class SimpleEmailServiceConfig(BaseConfig):
+    """SimpleEmailService Config
+
+    *New in 9.0*.
+    """
+
     session: dict[str, Any] = Field(default_factory=dict)
     queue_name: str
